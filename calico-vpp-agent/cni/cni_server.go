@@ -30,6 +30,7 @@ import (
 	pb "github.com/projectcalico/vpp-dataplane/calico-vpp-agent/proto"
 	"github.com/projectcalico/vpp-dataplane/calico-vpp-agent/routing"
 	"github.com/projectcalico/vpp-dataplane/vpplink"
+	"github.com/projectcalico/vpp-dataplane/vpplink/types"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
@@ -98,7 +99,38 @@ func NewLocalPodSpecFromDel(request *pb.DelRequest) *storage.LocalPodSpec {
 	}
 }
 
+func (s *Server) feature(hostIp string, hostPort uint32, containerPort uint32, containerIp net.IP) {
+	entry := &types.CnatTranslateEntry{
+		Endpoint: types.CnatEndpoint{
+			IP:   net.ParseIP(hostIp),
+			Port: uint16(hostPort),
+		},
+		Backends: []types.CnatEndpointTuple{
+			{
+				DstEndpoint: types.CnatEndpoint{
+					Port: uint16(containerPort),
+					IP: containerIp,
+				},
+				SrcEndpoint: types.CnatEndpoint{
+					IP: net.ParseIP(hostIp),
+				},
+			},
+		},
+		IsRealIP: false,
+		Proto: types.TCP,
+		LbType:   types.DefaultLB,
+	}
+	s.log.Infof("(add) %s", entry.String())
+	id, err := s.vpp.CnatTranslateAdd(entry)
+	if err != nil {
+		s.log.Errorf("Error re-injecting cnat entry %s : %v", entry.String(), err)
+	}else{
+		s.log.Infof("%s", id)
+	}
+}
+
 func (s *Server) Add(ctx context.Context, request *pb.AddRequest) (*pb.AddReply, error) {
+
 	if request.GetDesiredHostInterfaceName() != "" {
 		s.log.Warn("Desired host side interface name passed, this is not supported with VPP, ignoring it")
 	}
@@ -110,6 +142,16 @@ func (s *Server) Add(ctx context.Context, request *pb.AddRequest) (*pb.AddReply,
 			ErrorMessage: err.Error(),
 		}, nil
 	}
+	s.log.Infof("|||||||||")
+	s.log.Infof("HostPort: %+v", request.Workload.Ports[0].HostPort)
+	s.log.Infof("HostIP: %+v", request.Workload.Ports[0].HostIp)
+	s.log.Infof("%+v", request.Workload)
+	s.log.Infof("%+v", request.Workload.Pod)
+	s.log.Infof("%s", podSpec.ContainerIps[0])
+	s.log.Infof("%s", request.Workload.Ports[0].Protocol)
+	s.log.Infof("|||||||||")
+	s.feature(request.Workload.Ports[0].HostIp, request.Workload.Ports[0].HostPort, request.Workload.Ports[0].Port, podSpec.ContainerIps[0].IP)
+	
 
 	s.log.Infof("Add request %s", podSpec.String())
 	s.BarrierSync()
@@ -252,7 +294,7 @@ func NewServer(v *vpplink.VppLink, rs *routing.Server, ps *policy.Server, l *log
 
 func (s *Server) Serve() {
 	s.rescanState()
-	s.log.Infof("Serve() CNI")
+	s.log.Infof("__________Serve() CNI____________")
 	err := s.grpcServer.Serve(s.socketListener)
 	if err != nil {
 		s.log.Fatalf("Failed to serve: %v", err)
