@@ -68,6 +68,15 @@ func NewLocalPodSpecFromAdd(request *pb.AddRequest) (*storage.LocalPodSpec, erro
 		OrchestratorID: request.Workload.Orchestrator,
 		WorkloadID:     request.Workload.Namespace + "/" + request.Workload.Pod,
 		EndpointID:     request.Workload.Endpoint,
+		HostPorts:      make([]storage.HostPortBinding, 0),
+	}
+	for _, port := range request.Workload.Ports {
+		podSpec.HostPorts = append(podSpec.HostPorts, storage.HostPortBinding{
+			HostPort:      port.HostPort,
+			HostIP:        port.HostIp,
+			ContainerPort: port.Port,
+		})
+
 	}
 	for _, routeStr := range request.GetContainerRoutes() {
 		_, route, err := net.ParseCIDR(routeStr)
@@ -99,7 +108,7 @@ func NewLocalPodSpecFromDel(request *pb.DelRequest) *storage.LocalPodSpec {
 	}
 }
 
-func (s *Server) feature(hostIp string, hostPort uint32, containerPort uint32, containerIp net.IP) {
+func (s *Server) BindHostPort(hostIp string, hostPort uint32, containerPort uint32, containerIp net.IP) {
 	entry := &types.CnatTranslateEntry{
 		Endpoint: types.CnatEndpoint{
 			IP:   net.ParseIP(hostIp),
@@ -109,28 +118,24 @@ func (s *Server) feature(hostIp string, hostPort uint32, containerPort uint32, c
 			{
 				DstEndpoint: types.CnatEndpoint{
 					Port: uint16(containerPort),
-					IP: containerIp,
-				},
-				SrcEndpoint: types.CnatEndpoint{
-					IP: net.ParseIP(hostIp),
+					IP:   containerIp,
 				},
 			},
 		},
-		IsRealIP: false,
-		Proto: types.TCP,
+		IsRealIP: true,
+		Proto:    types.TCP,
 		LbType:   types.DefaultLB,
 	}
 	s.log.Infof("(add) %s", entry.String())
 	id, err := s.vpp.CnatTranslateAdd(entry)
 	if err != nil {
 		s.log.Errorf("Error re-injecting cnat entry %s : %v", entry.String(), err)
-	}else{
+	} else {
 		s.log.Infof("%s", id)
 	}
 }
 
 func (s *Server) Add(ctx context.Context, request *pb.AddRequest) (*pb.AddReply, error) {
-
 	if request.GetDesiredHostInterfaceName() != "" {
 		s.log.Warn("Desired host side interface name passed, this is not supported with VPP, ignoring it")
 	}
@@ -142,16 +147,6 @@ func (s *Server) Add(ctx context.Context, request *pb.AddRequest) (*pb.AddReply,
 			ErrorMessage: err.Error(),
 		}, nil
 	}
-	s.log.Infof("|||||||||")
-	s.log.Infof("HostPort: %+v", request.Workload.Ports[0].HostPort)
-	s.log.Infof("HostIP: %+v", request.Workload.Ports[0].HostIp)
-	s.log.Infof("%+v", request.Workload)
-	s.log.Infof("%+v", request.Workload.Pod)
-	s.log.Infof("%s", podSpec.ContainerIps[0])
-	s.log.Infof("%s", request.Workload.Ports[0].Protocol)
-	s.log.Infof("|||||||||")
-	s.feature(request.Workload.Ports[0].HostIp, request.Workload.Ports[0].HostPort, request.Workload.Ports[0].Port, podSpec.ContainerIps[0].IP)
-	
 
 	s.log.Infof("Add request %s", podSpec.String())
 	s.BarrierSync()
@@ -294,7 +289,7 @@ func NewServer(v *vpplink.VppLink, rs *routing.Server, ps *policy.Server, l *log
 
 func (s *Server) Serve() {
 	s.rescanState()
-	s.log.Infof("__________Serve() CNI____________")
+	s.log.Infof("Serve() CNI")
 	err := s.grpcServer.Serve(s.socketListener)
 	if err != nil {
 		s.log.Fatalf("Failed to serve: %v", err)
