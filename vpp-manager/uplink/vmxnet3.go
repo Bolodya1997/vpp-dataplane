@@ -43,14 +43,14 @@ func (d *Vmxnet3Driver) IsSupported(warn bool) (supported bool) {
 	return supported
 }
 
-func (d *Vmxnet3Driver) PreconfigureLinux() (err error) {
+func (d *Vmxnet3Driver) PreconfigureLinux(idx int) (err error) {
 	if !d.params.VfioUnsafeiommu {
 		err := utils.SetVfioUnsafeiommu(true)
 		if err != nil {
 			return errors.Wrapf(err, "Vmxnet3 preconfigure error")
 		}
 	}
-	d.removeLinuxIfConf(true /* down */)
+	d.removeLinuxIfConf(true /* down */, idx)
 	driverName, err := utils.GetDriverNameFromPci(d.conf.PciId)
 	if err != nil {
 		return errors.Wrapf(err, "Couldnt get VF driver Name for %s", d.conf.PciId)
@@ -64,7 +64,7 @@ func (d *Vmxnet3Driver) PreconfigureLinux() (err error) {
 	return nil
 }
 
-func (d *Vmxnet3Driver) RestoreLinux() {
+func (d *Vmxnet3Driver) RestoreLinux(idx int) {
 	if d.conf.PciId != "" && d.conf.Driver != "" {
 		err := utils.SwapDriver(d.conf.PciId, d.conf.Driver, true)
 		if err != nil {
@@ -77,9 +77,9 @@ func (d *Vmxnet3Driver) RestoreLinux() {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface[idx])
 	if err != nil {
-		log.Warnf("Error setting %s up: %v", d.params.MainInterface, err)
+		log.Warnf("Error setting %s up: %v", d.params.MainInterface[idx], err)
 		return
 	}
 
@@ -87,24 +87,24 @@ func (d *Vmxnet3Driver) RestoreLinux() {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *Vmxnet3Driver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (err error) {
+func (d *Vmxnet3Driver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
 	intf := types.Vmxnet3Interface{
-		GenericVppInterface: d.getGenericVppInterface(),
+		GenericVppInterface: d.getGenericVppInterface(idx),
 		EnableGso:           d.params.EnableGSO,
 		PciId:               d.conf.PciId,
 	}
-	swIfIndex, err := vpp.CreateVmxnet3(&intf)
+	swIfIndex, err = vpp.CreateVmxnet3(&intf)
 	if err != nil {
-		return errors.Wrapf(err, "Error creating Vmxnet3 interface")
+		return 0, errors.Wrapf(err, "Error creating Vmxnet3 interface")
 	}
 
 	log.Infof("Created Vmxnet3 interface %d", swIfIndex)
 
-	if swIfIndex != config.DataInterfaceSwIfIndex {
-		return fmt.Errorf("created Vmxnet3 interface has wrong swIfIndex %d", swIfIndex)
+	if idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
+		return 0, fmt.Errorf("created Vmxnet3 interface has wrong swIfIndex %d", swIfIndex)
 	}
 
-	return nil
+	return swIfIndex, nil
 }
 
 func NewVmxnet3Driver(params *config.VppManagerParams, conf *config.InterfaceConfig) *Vmxnet3Driver {

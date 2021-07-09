@@ -141,22 +141,31 @@ func main() {
 	params := startup.GetVppManagerParams()
 
 	hooks.RunHook(hooks.BEFORE_IF_READ, params, nil)
-	conf := startup.PrepareConfiguration(params)
+
+	numberOfIfs := len(params.MainInterface)
+
+	var confs []*config.InterfaceConfig
+	for idx := 0; idx < numberOfIfs; idx++ {
+		confs = append(confs, startup.PrepareConfiguration(params, idx))
+	}
 
 	runningCond = sync.NewCond(&sync.Mutex{})
 	go handleSignals()
 
-	startup.PrintVppManagerConfig(params, conf)
+	startup.PrintVppManagerConfig(params, confs)
 
-	runner := NewVPPRunner(params, conf)
+	runner := NewVPPRunner(params, confs)
 
 	makeNewVPPIndex()
-	if params.NativeDriver == "" {
-		for _, driver := range uplink.SupportedUplinkDrivers(params, conf) {
+
+	if numberOfIfs != len(params.NativeDriver) {
+		log.Error("for multiple interfaces a driver needs to be specified for each interface")
+	} else if numberOfIfs == 1 && params.NativeDriver[0] == "" {
+		for _, driver := range uplink.SupportedUplinkDrivers(params, confs[0]) {
 			internalKill = false
-			err := runner.Run(driver)
+			err := runner.Run([]uplink.UplinkDriver{driver})
 			if err != nil {
-				hooks.RunHook(hooks.VPP_ERRORED, params, conf)
+				hooks.RunHook(hooks.VPP_ERRORED, params, confs)
 				log.Errorf("VPP(%s) run failed with %s", driver, err)
 			}
 			if vppProcess != nil && !internalKill {
@@ -167,11 +176,17 @@ func main() {
 			makeNewVPPIndex()
 		}
 	} else {
-		driver := uplink.NewUplinkDriver(params.NativeDriver, params, conf)
-		err := runner.Run(driver)
+		var drivers []uplink.UplinkDriver
+		for idx := 0; idx < numberOfIfs; idx++ {
+			drivers = append(drivers, uplink.NewUplinkDriver(params.NativeDriver[idx], params, confs[idx]))
+		}
+		err := runner.Run(drivers)
+
 		if err != nil {
-			hooks.RunHook(hooks.VPP_ERRORED, params, conf)
+			hooks.RunHook(hooks.VPP_ERRORED, params, confs)
 			log.Errorf("VPP(%s) run failed with %s", params.NativeDriver, err)
 		}
+
 	}
+
 }

@@ -296,6 +296,7 @@ spec:
                 configMapKeyRef:
                   name: calico-vpp-config
                   key: vpp_dataplane_interface
+            
             - name: CALICOVPP_CONFIG_TEMPLATE
               valueFrom:
                 configMapKeyRef:

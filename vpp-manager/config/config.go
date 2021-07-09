@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/projectcalico/vpp-dataplane/vpplink/types"
@@ -35,8 +36,6 @@ const (
 	VppApiSocket           = "/var/run/vpp/vpp-api.sock"
 	CalicoVppPidFile       = "/var/run/vpp/calico_vpp.pid"
 	VppPath                = "/usr/bin/vpp"
-	HostIfName             = "vpptap0"
-	HostIfTag              = "hosttap"
 	VppSigKillTimeout      = 2
 	DefaultEncapSize       = 60   // Used to lower the MTU of the routes to the cluster
 	VppTapMtu              = 9216 /* Max MTU for VPP tap interfaces */
@@ -51,9 +50,14 @@ const (
 	DRIVER_VMXNET3         = "vmxnet3"
 )
 
+type VppManagerInterface struct {
+	SwIfIndex uint32
+	HostIfTag string
+}
+
 type VppManagerParams struct {
 	VppStartupSleepSeconds   int
-	MainInterface            string
+	MainInterface            []string
 	ConfigExecTemplate       string
 	ConfigTemplate           string
 	NodeName                 string
@@ -61,9 +65,9 @@ type VppManagerParams struct {
 	RxMode                   types.RxMode
 	TapRxMode                types.RxMode
 	ServiceCIDRs             []net.IPNet
-	VppIpConfSource          string
+	VppIpConfSource          []string
 	ExtraAddrCount           int
-	NativeDriver             string
+	NativeDriver             []string
 	TapRxQueueSize           int
 	TapTxQueueSize           int
 	RxQueueSize              int
@@ -71,7 +75,7 @@ type VppManagerParams struct {
 	UserSpecifiedMtu         int
 	NumRxQueues              int
 	NumTxQueues              int
-	NewDriverName            string
+	NewDriverName            []string
 	DefaultGWs               []net.IP
 	IfConfigSavePath         string
 	EnableGSO                bool
@@ -196,6 +200,8 @@ func TemplateScriptReplace(input string, params *VppManagerParams, conf *Interfa
 		/* We might template scripts before reading interface conf */
 		template = strings.ReplaceAll(template, "__PCI_DEVICE_ID__", conf.PciId)
 	}
-	template = strings.ReplaceAll(template, "__VPP_DATAPLANE_IF__", params.MainInterface)
+	for i, ifc := range params.MainInterface {
+		template = strings.ReplaceAll(template, "__VPP_DATAPLANE_IF_"+strconv.Itoa(i)+"__", ifc)
+	}
 	return template
 }

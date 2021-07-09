@@ -43,19 +43,19 @@ func (d *RDMADriver) IsSupported(warn bool) (supported bool) {
 	return supported
 }
 
-func (d *RDMADriver) PreconfigureLinux() (err error) {
-	d.removeLinuxIfConf(true /* down */)
+func (d *RDMADriver) PreconfigureLinux(idx int) (err error) {
+	d.removeLinuxIfConf(true /* down */, idx)
 	return nil
 }
 
-func (d *RDMADriver) RestoreLinux() {
+func (d *RDMADriver) RestoreLinux(idx int) {
 
 	if !d.conf.IsUp {
 		return
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface[idx])
 	if err != nil {
 		log.Warnf("Error setting %s up: %v", d.params.MainInterface, err)
 		return
@@ -65,28 +65,27 @@ func (d *RDMADriver) RestoreLinux() {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *RDMADriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (err error) {
+func (d *RDMADriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
 	intf := types.RDMAInterface{
-		GenericVppInterface: d.getGenericVppInterface(),
+		GenericVppInterface: d.getGenericVppInterface(idx),
 	}
-	swIfIndex, err := vpp.CreateRDMA(&intf)
+	swIfIndex, err = vpp.CreateRDMA(&intf)
 
 	if err != nil {
-		return errors.Wrapf(err, "Error creating RDMA interface")
+		return 0, errors.Wrapf(err, "Error creating RDMA interface")
 	}
 
-	err = d.moveInterfaceToNS(d.params.MainInterface, vppPid)
+	err = d.moveInterfaceToNS(d.params.MainInterface[idx], vppPid)
 	if err != nil {
-		return errors.Wrap(err, "Moving uplink in NS failed")
+		return 0, errors.Wrap(err, "Moving uplink in NS failed")
 	}
 
 	log.Infof("Created RDMA interface %d", swIfIndex)
 
-	if swIfIndex != config.DataInterfaceSwIfIndex {
-		return fmt.Errorf("Created RDMA interface has wrong swIfIndex %d!", swIfIndex)
+	if idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
+		return 0, fmt.Errorf("Created RDMA interface has wrong swIfIndex %d!", swIfIndex)
 	}
-
-	return nil
+	return swIfIndex, nil
 }
 
 func NewRDMADriver(params *config.VppManagerParams, conf *config.InterfaceConfig) *RDMADriver {
