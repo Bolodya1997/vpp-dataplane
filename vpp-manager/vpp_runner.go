@@ -124,7 +124,7 @@ func (v *VppRunner) configureLinuxTap(link netlink.Link) (err error) {
 		log.Infof("Adding address %+v to tap interface", singleAddr)
 		err = netlink.AddrAdd(link, &singleAddr)
 		if err != nil {
-			return errors.Wrapf(err, "Error adding address %s to tap interface", singleAddr)
+			return errors.Wrapf(err, "Error adding address %s to tap interface: %v", singleAddr, err)
 		}
 		if addr.IP.To4() == nil {
 			hasv6 = true
@@ -147,7 +147,7 @@ func (v *VppRunner) configureLinuxTap(link netlink.Link) (err error) {
 		if err == syscall.EEXIST {
 			log.Warnf("cannot add route %+v via vpp, %+v", newRoute, err)
 		} else if err != nil {
-			return errors.Wrapf(err, "cannot add route %+v via vpp", newRoute)
+			return errors.Wrapf(err, "cannot add route %+v via vpp: %v", newRoute, err)
 		}
 	}
 
