@@ -3524,6 +3524,66 @@ spec:
     spec:
       containers:
       - env:
+        - name: CALICOVPP_NATIVE_DRIVER
+          valueFrom:
+            configMapKeyRef:
+              key: vpp_uplink_driver
+              name: calico-config
+        - name: CALICOVPP_IP_CONFIG
+          value: linux
+        - name: CALICOVPP_INTERFACE
+          valueFrom:
+            configMapKeyRef:
+              key: vpp_dataplane_interface
+              name: calico-config
+        - name: CALICOVPP_CONFIG_TEMPLATE
+          valueFrom:
+            configMapKeyRef:
+              key: vpp_config_template
+              name: calico-config
+        - name: SERVICE_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              key: service_prefix
+              name: calico-config
+        - name: DATASTORE_TYPE
+          value: kubernetes
+        - name: WAIT_FOR_DATASTORE
+          value: "true"
+        - name: NODENAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CALICOVPP_CORE_PATTERN
+          value: /var/lib/vpp/vppcore.%e.%p
+        image: docker.io/calicovpp/vpp:v0.13.0-calicov3.17.1
+        imagePullPolicy: IfNotPresent
+        name: vpp
+        resources:
+          limits:
+            hugepages-2Mi: 512Mi
+          requests:
+            cpu: 1
+            memory: 128Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /hugepages
+          name: hugepage
+        - mountPath: /var/run/vpp
+          name: vpp-rundir
+        - mountPath: /var/lib/vpp
+          name: vpp-data
+        - mountPath: /etc/vpp
+          name: vpp-config
+        - mountPath: /dev
+          name: devices
+        - mountPath: /sys
+          name: hostsys
+        - mountPath: /run/netns/
+          mountPropagation: Bidirectional
+          name: netns
+      - env:
         - name: DATASTORE_TYPE
           value: kubernetes
         - name: WAIT_FOR_DATASTORE
@@ -3613,66 +3673,6 @@ spec:
           name: policysync
         - mountPath: /var/run/vpp
           name: vpp-rundir
-        - mountPath: /run/netns/
-          mountPropagation: Bidirectional
-          name: netns
-      - env:
-        - name: CALICOVPP_NATIVE_DRIVER
-          valueFrom:
-            configMapKeyRef:
-              key: vpp_uplink_driver
-              name: calico-config
-        - name: CALICOVPP_IP_CONFIG
-          value: linux
-        - name: CALICOVPP_INTERFACE
-          valueFrom:
-            configMapKeyRef:
-              key: vpp_dataplane_interface
-              name: calico-config
-        - name: CALICOVPP_CONFIG_TEMPLATE
-          valueFrom:
-            configMapKeyRef:
-              key: vpp_config_template
-              name: calico-config
-        - name: SERVICE_PREFIX
-          valueFrom:
-            configMapKeyRef:
-              key: service_prefix
-              name: calico-config
-        - name: DATASTORE_TYPE
-          value: kubernetes
-        - name: WAIT_FOR_DATASTORE
-          value: "true"
-        - name: NODENAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: CALICOVPP_CORE_PATTERN
-          value: /var/lib/vpp/vppcore.%e.%p
-        image: docker.io/calicovpp/vpp:v0.13.0-calicov3.17.1
-        imagePullPolicy: IfNotPresent
-        name: vpp
-        resources:
-          limits:
-            hugepages-2Mi: 512Mi
-          requests:
-            cpu: 1
-            memory: 128Mi
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /hugepages
-          name: hugepage
-        - mountPath: /var/run/vpp
-          name: vpp-rundir
-        - mountPath: /var/lib/vpp
-          name: vpp-data
-        - mountPath: /etc/vpp
-          name: vpp-config
-        - mountPath: /dev
-          name: devices
-        - mountPath: /sys
-          name: hostsys
         - mountPath: /run/netns/
           mountPropagation: Bidirectional
           name: netns
