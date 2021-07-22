@@ -193,10 +193,10 @@ func (s *Server) AddVppInterface(podSpec *storage.LocalPodSpec, doHostSideConf b
 	// Select the first 11 characters of the containerID for the host veth.
 	tunTag := podSpec.NetnsName + "-" + podSpec.InterfaceName
 
-	for _, port := range podSpec.HostPorts {
-		s.BindHostPort(port.HostIP, port.HostPort, port.ContainerPort, podSpec.ContainerIps[0].IP)
+	for idx := range podSpec.HostPorts {
+		s.BindHostPort(&podSpec.HostPorts[idx], podSpec.ContainerIps[0].IP)
 	}
-	
+
 	s.log.Infof("Creating container interface using VPP networking")
 	s.log.Infof("Setting tun tag to %s", tunTag)
 
@@ -378,6 +378,18 @@ func (s *Server) DelVppInterface(podSpec *storage.LocalPodSpec) error {
 	if podSpec.NetnsName == "" {
 		s.log.Infof("no netns passed, skipping")
 		return nil
+	}
+	initialSpec, ok := s.podInterfaceMap[podSpec.Key()]
+	if ok {
+		for _, hostport := range initialSpec.HostPorts {
+			err := s.vpp.CnatTranslateDel(hostport.EntryID)
+			if err != nil {
+				return errors.Wrapf(err, "(del) Error deleting entry with ID %s", hostport.EntryID)
+			}
+			s.log.Infof("Entry %s deleted", hostport.EntryID)
+		}
+	} else {
+		s.log.Warnf("Initial spec not found")
 	}
 
 	devErr := ns.WithNetNSPath(podSpec.NetnsName, func(_ ns.NetNS) error {

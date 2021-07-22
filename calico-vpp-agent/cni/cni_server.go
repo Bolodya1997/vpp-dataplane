@@ -108,7 +108,11 @@ func NewLocalPodSpecFromDel(request *pb.DelRequest) *storage.LocalPodSpec {
 	}
 }
 
-func (s *Server) BindHostPort(hostIp string, hostPort uint32, containerPort uint32, containerIp net.IP) {
+func (s *Server) BindHostPort(port *storage.HostPortBinding, containerIp net.IP) {
+	hostIp := port.HostIP
+	hostPort := port.HostPort
+	containerPort := port.ContainerPort
+
 	entry := &types.CnatTranslateEntry{
 		Endpoint: types.CnatEndpoint{
 			IP:   net.ParseIP(hostIp),
@@ -132,6 +136,7 @@ func (s *Server) BindHostPort(hostIp string, hostPort uint32, containerPort uint
 		s.log.Errorf("Error re-injecting cnat entry %s : %v", entry.String(), err)
 	} else {
 		s.log.Infof("%s", id)
+		port.EntryID = id
 	}
 }
 

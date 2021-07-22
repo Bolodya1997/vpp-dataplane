@@ -135,6 +135,7 @@ type HostPortBinding struct {
 	HostIPSize    int `struc:"int16,sizeof=HostIP"`
 	HostIP        string
 	ContainerPort uint32
+	EntryID       uint32
 }
 
 func (ps *LocalPodSpec) GetRoutes() (routes []*net.IPNet) {
