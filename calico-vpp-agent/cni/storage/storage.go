@@ -132,8 +132,7 @@ type LocalPodSpec struct {
 
 type HostPortBinding struct {
 	HostPort      uint32
-	HostIPSize    int `struc:"int16,sizeof=HostIP"`
-	HostIP        string
+	HostIP        net.IP `struc:"[16]byte"`
 	ContainerPort uint32
 	EntryID       uint32
 }

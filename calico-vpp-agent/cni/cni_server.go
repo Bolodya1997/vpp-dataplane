@@ -73,7 +73,7 @@ func NewLocalPodSpecFromAdd(request *pb.AddRequest) (*storage.LocalPodSpec, erro
 	for _, port := range request.Workload.Ports {
 		podSpec.HostPorts = append(podSpec.HostPorts, storage.HostPortBinding{
 			HostPort:      port.HostPort,
-			HostIP:        port.HostIp,
+			HostIP:        net.ParseIP(port.HostIp),
 			ContainerPort: port.Port,
 		})
 
@@ -108,14 +108,14 @@ func NewLocalPodSpecFromDel(request *pb.DelRequest) *storage.LocalPodSpec {
 	}
 }
 
-func (s *Server) BindHostPort(port *storage.HostPortBinding, containerIp net.IP) {
+func (s *Server) BindHostPort(port storage.HostPortBinding, containerIp net.IP) (id uint32, err error){
 	hostIp := port.HostIP
 	hostPort := port.HostPort
 	containerPort := port.ContainerPort
 
 	entry := &types.CnatTranslateEntry{
 		Endpoint: types.CnatEndpoint{
-			IP:   net.ParseIP(hostIp),
+			IP:   hostIp,
 			Port: uint16(hostPort),
 		},
 		Backends: []types.CnatEndpointTuple{
@@ -131,12 +131,12 @@ func (s *Server) BindHostPort(port *storage.HostPortBinding, containerIp net.IP)
 		LbType:   types.DefaultLB,
 	}
 	s.log.Infof("(add) %s", entry.String())
-	id, err := s.vpp.CnatTranslateAdd(entry)
+	id, err = s.vpp.CnatTranslateAdd(entry)
 	if err != nil {
-		s.log.Errorf("Error re-injecting cnat entry %s : %v", entry.String(), err)
+		errors.Wrapf(err, "Error re-injecting cnat entry %s", entry.String())
+		return 0, err
 	} else {
-		s.log.Infof("%s", id)
-		port.EntryID = id
+		return id, err
 	}
 }
 
