@@ -48,11 +48,11 @@ func (d *DPDKDriver) PreconfigureLinux(idx int) (err error) {
 	d.removeLinuxIfConf(true /* down */, idx)
 	finalDriver := d.conf.Driver
 	if d.conf.DoSwapDriver {
-		err = utils.SwapDriver(d.conf.PciId, d.params.NewDriverName[idx], true)
+		err = utils.SwapDriver(d.conf.PciId, d.params.InterfacesSpecs[idx].NewDriverName, true)
 		if err != nil {
-			log.Warnf("Failed to swap driver to %s: %v", d.params.NewDriverName[idx], err)
+			log.Warnf("Failed to swap driver to %s: %v", d.params.InterfacesSpecs[idx].NewDriverName, err)
 		}
-		finalDriver = d.params.NewDriverName[idx]
+		finalDriver = d.params.InterfacesSpecs[idx].NewDriverName
 	}
 	if finalDriver == config.DRIVER_VFIO_PCI && d.params.AvailableHugePages == 0 {
 		err := utils.SetVfioUnsafeiommu(false)
@@ -105,14 +105,14 @@ func (d *DPDKDriver) restoreInterfaceName(idx int) error {
 	if err != nil {
 		return errors.Wrapf(err, "Error getting new if name for %s: %v", d.conf.PciId)
 	}
-	if newName == d.params.MainInterface[idx] {
+	if newName == d.params.InterfacesSpecs[idx].MainInterface {
 		return nil
 	}
 	link, err := netlink.LinkByName(newName)
 	if err != nil {
 		return errors.Wrapf(err, "Error getting new link %s: %v", newName)
 	}
-	err = netlink.LinkSetName(link, d.params.MainInterface[idx])
+	err = netlink.LinkSetName(link, d.params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
 		return errors.Wrapf(err, "Error setting new if name for %s: %v", d.conf.PciId)
 	}
@@ -142,9 +142,9 @@ func (d *DPDKDriver) RestoreLinux(idx int) {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface[idx])
+	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
-		log.Warnf("Error seting %s up: %v", d.params.MainInterface[idx], err)
+		log.Warnf("Error seting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (d *DPDKDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, id
 	return 0, nil
 }
 
-func NewDPDKDriver(params *config.VppManagerParams, conf *config.InterfaceConfig) *DPDKDriver {
+func NewDPDKDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *DPDKDriver {
 	d := &DPDKDriver{}
 	d.name = NATIVE_DRIVER_DPDK
 	d.conf = conf

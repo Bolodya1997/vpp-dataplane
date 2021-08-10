@@ -43,9 +43,9 @@ func (d *DefaultDriver) PreconfigureLinux(idx int) (err error) {
 		if d.conf.PciId == "" {
 			log.Warnf("PCI ID not found, not swapping drivers")
 		} else {
-			err = utils.SwapDriver(d.conf.PciId, d.params.NewDriverName[idx], true)
+			err = utils.SwapDriver(d.conf.PciId, d.params.InterfacesSpecs[idx].NewDriverName, true)
 			if err != nil {
-				log.Warnf("Failed to swap driver to %s: %v", d.params.NewDriverName[idx], err)
+				log.Warnf("Failed to swap driver to %s: %v", d.params.InterfacesSpecs[idx].NewDriverName, err)
 			}
 		}
 	}
@@ -64,9 +64,9 @@ func (d *DefaultDriver) RestoreLinux(idx int) {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface[idx])
+	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
-		log.Warnf("Error seting %s up: %v", d.params.MainInterface, err)
+		log.Warnf("Error seting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
 		return
 	}
 
@@ -76,16 +76,16 @@ func (d *DefaultDriver) RestoreLinux(idx int) {
 
 func (d *DefaultDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
 	// If interface is still in the host, move it to vpp netns to allow creation of the tap
-	err = d.moveInterfaceToNS(d.params.MainInterface[idx], vppPid)
+	err = d.moveInterfaceToNS(d.params.InterfacesSpecs[idx].MainInterface, vppPid)
 	if err != nil {
-		log.Infof("Did NOT move interface %s to VPP netns: %v", d.params.MainInterface[idx], err)
+		log.Infof("Did NOT move interface %s to VPP netns: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
 	} else {
-		log.Infof("Moved interface %s to VPP netns", d.params.MainInterface[idx])
+		log.Infof("Moved interface %s to VPP netns", d.params.InterfacesSpecs[idx].MainInterface)
 	}
 	return 0, nil
 }
 
-func NewDefaultDriver(params *config.VppManagerParams, conf *config.InterfaceConfig) *DefaultDriver {
+func NewDefaultDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *DefaultDriver {
 	d := &DefaultDriver{}
 	d.name = NATIVE_DRIVER_NONE
 	d.conf = conf

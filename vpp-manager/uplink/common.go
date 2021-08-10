@@ -41,7 +41,7 @@ const (
 )
 
 type UplinkDriverData struct {
-	conf   *config.InterfaceConfig
+	conf   *config.LinuxInterfaceState
 	params *config.VppManagerParams
 	name   string
 }
@@ -80,9 +80,9 @@ func (d *UplinkDriverData) moveInterfaceToNS(ifName string, pid int) error {
 }
 
 func (d *UplinkDriverData) removeLinuxIfConf(setIfDown bool, idx int) {
-	link, err := netlink.LinkByName(d.params.MainInterface[idx])
+	link, err := netlink.LinkByName(d.params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
-		log.Errorf("Error finding link %s: %s", d.params.MainInterface[idx], err)
+		log.Errorf("Error finding link %s: %s", d.params.InterfacesSpecs[idx].MainInterface, err)
 	} else {
 		// Remove routes to not have them conflict with vpptap0
 		for _, route := range d.conf.Routes {
@@ -105,7 +105,7 @@ func (d *UplinkDriverData) removeLinuxIfConf(setIfDown bool, idx int) {
 			if err != nil {
 				// In case it still succeeded
 				netlink.LinkSetUp(link)
-				log.Errorf("Error setting link %s down: %s", d.params.MainInterface[idx], err)
+				log.Errorf("Error setting link %s down: %s", d.params.InterfacesSpecs[idx].MainInterface, err)
 			}
 		}
 	}
@@ -162,11 +162,11 @@ func (d *UplinkDriverData) getGenericVppInterface(idx int) types.GenericVppInter
 		TxQueueSize:       d.params.TxQueueSize,
 		NumTxQueues:       d.params.NumTxQueues,
 		HardwareAddr:      &d.conf.HardwareAddr,
-		HostInterfaceName: d.params.MainInterface[idx],
+		HostInterfaceName: d.params.InterfacesSpecs[idx].MainInterface,
 	}
 }
 
-func SupportedUplinkDrivers(params *config.VppManagerParams, conf *config.InterfaceConfig) []UplinkDriver {
+func SupportedUplinkDrivers(params *config.VppManagerParams, conf *config.LinuxInterfaceState) []UplinkDriver {
 	lst := make([]UplinkDriver, 0)
 
 	if d := NewVirtioDriver(params, conf); d.IsSupported(false /* warn */) {
@@ -190,7 +190,7 @@ func SupportedUplinkDrivers(params *config.VppManagerParams, conf *config.Interf
 	return lst
 }
 
-func NewUplinkDriver(name string, params *config.VppManagerParams, conf *config.InterfaceConfig) (d UplinkDriver) {
+func NewUplinkDriver(name string, params *config.VppManagerParams, conf *config.LinuxInterfaceState) (d UplinkDriver) {
 	switch name {
 	case NATIVE_DRIVER_RDMA:
 		d = NewRDMADriver(params, conf)

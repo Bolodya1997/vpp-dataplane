@@ -77,9 +77,9 @@ func (d *Vmxnet3Driver) RestoreLinux(idx int) {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.MainInterface[idx])
+	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
-		log.Warnf("Error setting %s up: %v", d.params.MainInterface[idx], err)
+		log.Warnf("Error setting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (d *Vmxnet3Driver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int,
 	return swIfIndex, nil
 }
 
-func NewVmxnet3Driver(params *config.VppManagerParams, conf *config.InterfaceConfig) *Vmxnet3Driver {
+func NewVmxnet3Driver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *Vmxnet3Driver {
 	d := &Vmxnet3Driver{}
 	d.name = NATIVE_DRIVER_VMXNET3
 	d.conf = conf

@@ -50,14 +50,18 @@ const (
 	DRIVER_VMXNET3         = "vmxnet3"
 )
 
-type VppManagerInterface struct {
-	SwIfIndex uint32
-	HostIfTag string
+type InterfaceSpec struct {
+	MainInterface   string
+	VppIpConfSource string
+	NativeDriver    string
+	NewDriverName   string
+	SwIfIndex       uint32
+	HostIfTag       string
 }
 
 type VppManagerParams struct {
 	VppStartupSleepSeconds   int
-	MainInterface            []string
+	InterfacesSpecs          []InterfaceSpec
 	ConfigExecTemplate       string
 	ConfigTemplate           string
 	NodeName                 string
@@ -65,9 +69,7 @@ type VppManagerParams struct {
 	RxMode                   types.RxMode
 	TapRxMode                types.RxMode
 	ServiceCIDRs             []net.IPNet
-	VppIpConfSource          []string
 	ExtraAddrCount           int
-	NativeDriver             []string
 	TapRxQueueSize           int
 	TapTxQueueSize           int
 	RxQueueSize              int
@@ -75,7 +77,6 @@ type VppManagerParams struct {
 	UserSpecifiedMtu         int
 	NumRxQueues              int
 	NumTxQueues              int
-	NewDriverName            []string
 	DefaultGWs               []net.IP
 	IfConfigSavePath         string
 	EnableGSO                bool
@@ -88,6 +89,10 @@ type VppManagerParams struct {
 }
 
 type InterfaceConfig struct {
+	InterfacesConfigs []*LinuxInterfaceState
+}
+
+type LinuxInterfaceState struct {
 	PciId        string
 	Driver       string
 	IsUp         bool
@@ -112,7 +117,7 @@ type KernelVersion struct {
 	Patch  int
 }
 
-func GetUplinkMtu(params *VppManagerParams, conf *InterfaceConfig, includeEncap bool) int {
+func GetUplinkMtu(params *VppManagerParams, conf *LinuxInterfaceState, includeEncap bool) int {
 	encapSize := 0
 	if includeEncap {
 		encapSize = DefaultEncapSize
@@ -144,7 +149,7 @@ func (ver *KernelVersion) IsAtLeast(other *KernelVersion) bool {
 	return true
 }
 
-func (c *InterfaceConfig) AddressString() string {
+func (c *LinuxInterfaceState) AddressString() string {
 	var str []string
 	for _, addr := range c.Addresses {
 		str = append(str, addr.String())
@@ -152,7 +157,7 @@ func (c *InterfaceConfig) AddressString() string {
 	return strings.Join(str, ",")
 }
 
-func (c *InterfaceConfig) RouteString() string {
+func (c *LinuxInterfaceState) RouteString() string {
 	var str []string
 	for _, route := range c.Routes {
 		if route.Dst == nil {
@@ -173,7 +178,7 @@ func (c *InterfaceConfig) RouteString() string {
 
 // SortRoutes sorts the route slice by dependency order, so we can then add them
 // in the order of the slice without issues
-func (c *InterfaceConfig) SortRoutes() {
+func (c *LinuxInterfaceState) SortRoutes() {
 	sort.SliceStable(c.Routes, func(i, j int) bool {
 		// Directly connected routes go first
 		if c.Routes[i].Gw == nil {
@@ -194,14 +199,14 @@ func (c *InterfaceConfig) SortRoutes() {
 	})
 }
 
-func TemplateScriptReplace(input string, params *VppManagerParams, conf *InterfaceConfig) (template string) {
+func TemplateScriptReplace(input string, params *VppManagerParams, conf *LinuxInterfaceState) (template string) {
 	template = input
 	if conf != nil {
 		/* We might template scripts before reading interface conf */
 		template = strings.ReplaceAll(template, "__PCI_DEVICE_ID__", conf.PciId)
 	}
-	for i, ifc := range params.MainInterface {
-		template = strings.ReplaceAll(template, "__VPP_DATAPLANE_IF_"+strconv.Itoa(i)+"__", ifc)
+	for i, ifc := range params.InterfacesSpecs {
+		template = strings.ReplaceAll(template, "__VPP_DATAPLANE_IF_"+strconv.Itoa(i)+"__", ifc.MainInterface)
 	}
 	return template
 }

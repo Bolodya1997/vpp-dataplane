@@ -174,9 +174,12 @@ func parseEnvVariables(params *config.VppManagerParams) (err error) {
 		}
 	}
 
-	params.MainInterface = strings.Split(getEnvValue(InterfaceEnvVar), "-")
-	if len(params.MainInterface) == 0 || params.MainInterface[0] == "" {
+	mainInterfaces := strings.Split(getEnvValue(InterfaceEnvVar), "-")
+	if len(mainInterfaces) == 0 || mainInterfaces[0] == "" {
 		return errors.Errorf("No interface specified. Specify an interface through the %s environment variable", InterfaceEnvVar)
+	}
+	for _, ele := range mainInterfaces {
+		params.InterfacesSpecs = append(params.InterfacesSpecs, config.InterfaceSpec{MainInterface: ele})
 	}
 
 	params.ConfigExecTemplate = getEnvValue(ConfigExecTemplateEnvVar)
@@ -210,9 +213,14 @@ func parseEnvVariables(params *config.VppManagerParams) (err error) {
 		params.ServiceCIDRs = append(params.ServiceCIDRs, *serviceCIDR)
 	}
 
-	params.VppIpConfSource = strings.Split(getEnvValue(IpConfigEnvVar), "-")
-	if params.VppIpConfSource[0] != "linux" { // TODO add dhcp, config file, etc.
+	vppIpConfSources := strings.Split(getEnvValue(IpConfigEnvVar), "-")
+	if vppIpConfSources[0] != "linux" { // TODO add dhcp, config file, etc.
 		return errors.Errorf("No ip configuration source specified. Specify one of {linux,} through the %s environment variable", IpConfigEnvVar)
+	} else if len(vppIpConfSources) != len(mainInterfaces) {
+		return errors.Errorf("Unmatching ip configuration sources list length in %s", IpConfigEnvVar)
+	}
+	for i := range params.InterfacesSpecs {
+		params.InterfacesSpecs[i].VppIpConfSource = vppIpConfSources[i]
 	}
 
 	params.CorePattern = getEnvValue(CorePatternEnvVar)
@@ -227,11 +235,17 @@ func parseEnvVariables(params *config.VppManagerParams) (err error) {
 		}
 	}
 
-	params.NativeDriver = strings.Split(getEnvValue(NativeDriverEnvVar), "-")
-	for i, driver := range params.NativeDriver {
+	nativeDrivers := strings.Split(getEnvValue(NativeDriverEnvVar), "-")
+	for i, driver := range nativeDrivers {
 		if driver != "" {
-			params.NativeDriver[i] = strings.ToLower(driver)
+			nativeDrivers[i] = strings.ToLower(driver)
 		}
+	}
+	if len(nativeDrivers) != len(mainInterfaces) {
+		return errors.Errorf("Unmatching native drivers list length in %s", NativeDriverEnvVar)
+	}
+	for i := range params.InterfacesSpecs {
+		params.InterfacesSpecs[i].NativeDriver = nativeDrivers[i]
 	}
 
 	params.NumRxQueues = DefaultNumRxQueues
@@ -254,7 +268,13 @@ func parseEnvVariables(params *config.VppManagerParams) (err error) {
 		}
 	}
 
-	params.NewDriverName = strings.Split(getEnvValue(SwapDriverEnvVar), "-")
+	newDriverNames := strings.Split(getEnvValue(SwapDriverEnvVar), "-")
+	if len(newDriverNames) != len(mainInterfaces) {
+		return errors.Errorf("Unmatching new driver names list length in %s", SwapDriverEnvVar)
+	}
+	for i, ele := range params.InterfacesSpecs {
+		ele.NewDriverName = newDriverNames[i]
+	}
 
 	params.RxMode = types.UnformatRxMode(getEnvValue(RxModeEnvVar))
 	if params.RxMode == types.UnknownRxMode {
@@ -354,11 +374,11 @@ func parseRingSize(conf string) (int, int, error) {
 	return rxSize, txSize, nil
 }
 
-func PrintVppManagerConfig(params *config.VppManagerParams, confs []*config.InterfaceConfig) {
+func PrintVppManagerConfig(params *config.VppManagerParams, confs *config.InterfaceConfig) {
 	log.Infof("-- Environment --")
 	log.Infof("CorePattern:         %s", params.CorePattern)
 	log.Infof("ExtraAddrCount:      %d", params.ExtraAddrCount)
-	log.Infof("Native driver:       %s", params.NativeDriver)
+	log.Infof("Native driver:       %s", params.InterfacesSpecs)
 	log.Infof("RxMode:              %s", types.FormatRxMode(params.RxMode))
 	log.Infof("TapRxMode:           %s", types.FormatRxMode(params.TapRxMode))
 	log.Infof("Tap MTU override:    %d", params.UserSpecifiedMtu)
@@ -370,24 +390,24 @@ func PrintVppManagerConfig(params *config.VppManagerParams, confs []*config.Inte
 	log.Infof("KernelVersion        %s", params.KernelVersion)
 	log.Infof("Drivers              %s", params.LoadedDrivers)
 	log.Infof("vfio iommu:          %t", params.VfioUnsafeiommu)
-	for idx := range confs {
+	for _, conf := range confs.InterfacesConfigs {
 		log.Infof("-- Interface config --")
-		log.Infof("Node IP4:            %s", confs[idx].NodeIP4)
-		log.Infof("Node IP6:            %s", confs[idx].NodeIP6)
-		log.Infof("PciId:               %s", confs[idx].PciId)
-		log.Infof("Driver:              %s", confs[idx].Driver)
-		log.Infof("Linux IF was up ?    %t", confs[idx].IsUp)
-		log.Infof("Promisc was on ?     %t", confs[idx].PromiscOn)
-		log.Infof("DoSwapDriver:        %t", confs[idx].DoSwapDriver)
-		log.Infof("Mac:                 %s", confs[idx].HardwareAddr.String())
-		log.Infof("Addresses:           [%s]", confs[idx].AddressString())
-		log.Infof("Routes:              [%s]", confs[idx].RouteString())
-		log.Infof("PHY original #Queues rx:%d tx:%d", confs[idx].NumRxQueues, confs[idx].NumTxQueues)
-		log.Infof("MTU                  %d", confs[idx].Mtu)
+		log.Infof("Node IP4:            %s", conf.NodeIP4)
+		log.Infof("Node IP6:            %s", conf.NodeIP6)
+		log.Infof("PciId:               %s", conf.PciId)
+		log.Infof("Driver:              %s", conf.Driver)
+		log.Infof("Linux IF was up ?    %t", conf.IsUp)
+		log.Infof("Promisc was on ?     %t", conf.PromiscOn)
+		log.Infof("DoSwapDriver:        %t", conf.DoSwapDriver)
+		log.Infof("Mac:                 %s", conf.HardwareAddr.String())
+		log.Infof("Addresses:           [%s]", conf.AddressString())
+		log.Infof("Routes:              [%s]", conf.RouteString())
+		log.Infof("PHY original #Queues rx:%d tx:%d", conf.NumRxQueues, conf.NumTxQueues)
+		log.Infof("MTU                  %d", conf.Mtu)
 	}
 }
 
-func PrepareConfiguration(params *config.VppManagerParams, idx int) (conf *config.InterfaceConfig) {
+func PrepareConfiguration(params *config.VppManagerParams) (conf *config.InterfaceConfig) {
 	err := utils.ClearVppManagerFiles()
 	if err != nil {
 		log.Fatalf("Error clearing config files: %+v", err)
@@ -403,7 +423,7 @@ func PrepareConfiguration(params *config.VppManagerParams, idx int) (conf *confi
 		log.Errorf("Error raising memlock limit, VPP may fail to start: %v", err)
 	}
 
-	conf, err = getInterfaceConfig(params, idx)
+	conf, err = getInterfaceConfig(params)
 	if err != nil {
 		log.Fatalf("Error getting initial interface configuration: %s", err)
 	}

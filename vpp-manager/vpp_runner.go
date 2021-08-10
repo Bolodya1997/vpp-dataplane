@@ -51,7 +51,7 @@ var (
 
 type VppRunner struct {
 	params       *config.VppManagerParams
-	conf         []*config.InterfaceConfig
+	conf         []*config.LinuxInterfaceState
 	vpp          *vpplink.VppLink
 	uplinkDriver []uplink.UplinkDriver
 	routeWatcher *RouteWatcher
@@ -59,10 +59,10 @@ type VppRunner struct {
 	linkWatcher  *LinkWatcher
 }
 
-func NewVPPRunner(params *config.VppManagerParams, confs []*config.InterfaceConfig) *VppRunner {
+func NewVPPRunner(params *config.VppManagerParams, confs *config.InterfaceConfig) *VppRunner {
 	return &VppRunner{
 		params: params,
-		conf:   confs,
+		conf:   confs.InterfacesConfigs,
 	}
 }
 
@@ -259,7 +259,7 @@ func (v *VppRunner) configureLinuxTap(link netlink.Link, idx int) (err error) {
 	return nil
 }
 
-func (v *VppRunner) addExtraAddresses(addrList []netlink.Addr, extraAddrCount int, vppif config.VppManagerInterface) (err error) {
+func (v *VppRunner) addExtraAddresses(addrList []netlink.Addr, extraAddrCount int, vppIfSwIfIndex uint32) (err error) {
 	ipFlowHash := &types.IPFlowHash{
 		Src:       true,
 		Dst:       true,
@@ -292,7 +292,7 @@ func (v *VppRunner) addExtraAddresses(addrList []netlink.Addr, extraAddrCount in
 			Mask: addr.Mask,
 		}
 		a.IP[2] += byte(i)
-		err = v.vpp.AddInterfaceAddress(vppif.SwIfIndex, a)
+		err = v.vpp.AddInterfaceAddress(vppIfSwIfIndex, a)
 		if err != nil {
 			log.Errorf("Error adding address to data interface: %v", err)
 		}
@@ -300,33 +300,33 @@ func (v *VppRunner) addExtraAddresses(addrList []netlink.Addr, extraAddrCount in
 	return nil
 }
 
-func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err error) {
+func (v *VppRunner) configureVpp(idx int) (err error) {
 	// Always enable GSO feature on data interface, only a tiny negative effect on perf if GSO is not
 	// enabled on the taps or already done before an encap
 	if v.params.EnableGSO {
-		err = v.vpp.EnableGSOFeature(vppif.SwIfIndex)
+		err = v.vpp.EnableGSOFeature(v.params.InterfacesSpecs[idx].SwIfIndex)
 		if err != nil {
 			return errors.Wrap(err, "Error enabling GSO on data interface")
 		}
 	}
 
 	uplinkMtu := config.GetUplinkMtu(v.params, v.conf[idx], false /* includeEncap */)
-	err = v.vpp.SetInterfaceMtu(vppif.SwIfIndex, uplinkMtu)
+	err = v.vpp.SetInterfaceMtu(v.params.InterfacesSpecs[idx].SwIfIndex, uplinkMtu)
 	if err != nil {
 		return errors.Wrapf(err, "Error setting %d MTU on data interface", uplinkMtu)
 	}
 
-	err = v.vpp.SetInterfaceRxMode(vppif.SwIfIndex, types.AllQueues, v.params.RxMode)
+	err = v.vpp.SetInterfaceRxMode(v.params.InterfacesSpecs[idx].SwIfIndex, types.AllQueues, v.params.RxMode)
 	if err != nil {
 		log.Warnf("%v", err)
 	}
 
-	err = v.vpp.EnableInterfaceIP6(vppif.SwIfIndex)
+	err = v.vpp.EnableInterfaceIP6(v.params.InterfacesSpecs[idx].SwIfIndex)
 	if err != nil {
 		return errors.Wrap(err, "Error enabling ip6 on if")
 	}
 
-	err = v.vpp.CnatEnableFeatures(vppif.SwIfIndex)
+	err = v.vpp.CnatEnableFeatures(v.params.InterfacesSpecs[idx].SwIfIndex)
 	if err != nil {
 		return errors.Wrap(err, "Error configuring NAT on uplink interface")
 	}
@@ -339,7 +339,7 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 		},
 		Paths: []types.RoutePath{{
 			Gw:        net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
-			SwIfIndex: vppif.SwIfIndex,
+			SwIfIndex: v.params.InterfacesSpecs[idx].SwIfIndex,
 		}},
 	})
 	if err != nil {
@@ -348,7 +348,7 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 
 	for _, addr := range v.conf[idx].Addresses {
 		log.Infof("Adding address %s to data interface", addr.String())
-		err = v.vpp.AddInterfaceAddress(vppif.SwIfIndex, addr.IPNet)
+		err = v.vpp.AddInterfaceAddress(v.params.InterfacesSpecs[idx].SwIfIndex, addr.IPNet)
 		if err != nil {
 			log.Errorf("Error adding address to data interface: %v", err)
 		}
@@ -358,7 +358,7 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 			Dst: route.Dst,
 			Paths: []types.RoutePath{{
 				Gw:        route.Gw,
-				SwIfIndex: vppif.SwIfIndex,
+				SwIfIndex: v.params.InterfacesSpecs[idx].SwIfIndex,
 			}},
 		})
 		if err != nil {
@@ -370,7 +370,7 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 		err = v.vpp.RouteAdd(&types.Route{
 			Paths: []types.RoutePath{{
 				Gw:        defaultGW,
-				SwIfIndex: vppif.SwIfIndex,
+				SwIfIndex: v.params.InterfacesSpecs[idx].SwIfIndex,
 			}},
 		})
 		if err != nil {
@@ -379,7 +379,7 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 	}
 
 	if v.params.ExtraAddrCount > 0 {
-		err = v.addExtraAddresses(v.conf[idx].Addresses, v.params.ExtraAddrCount, vppif)
+		err = v.addExtraAddresses(v.conf[idx].Addresses, v.params.ExtraAddrCount, v.params.InterfacesSpecs[idx].SwIfIndex)
 		if err != nil {
 			log.Errorf("Cannot configure requested extra addresses: %v", err)
 		}
@@ -393,13 +393,13 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 
 	tapSwIfIndex, err := v.vpp.CreateTapV2(&types.TapV2{
 		GenericVppInterface: types.GenericVppInterface{
-			HostInterfaceName: v.params.MainInterface[idx],
+			HostInterfaceName: v.params.InterfacesSpecs[idx].MainInterface,
 			RxQueueSize:       v.params.TapRxQueueSize,
 			TxQueueSize:       v.params.TapTxQueueSize,
 			HardwareAddr:      &vppSideMac,
 		},
 		HostNamespace:  "pid:1", // create tap in root netns
-		Tag:            vppif.HostIfTag,
+		Tag:            v.params.InterfacesSpecs[idx].HostIfTag,
 		Flags:          vpptap0Flags,
 		HostMtu:        uplinkMtu,
 		HostMacAddress: v.conf[idx].HardwareAddr,
@@ -477,7 +477,7 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 		}
 	}
 
-	err = v.vpp.InterfaceSetUnnumbered(tapSwIfIndex, vppif.SwIfIndex)
+	err = v.vpp.InterfaceSetUnnumbered(tapSwIfIndex, v.params.InterfacesSpecs[idx].SwIfIndex)
 	if err != nil {
 		return errors.Wrap(err, "error setting vpp tap unnumbered")
 	}
@@ -503,9 +503,9 @@ func (v *VppRunner) configureVpp(idx int, vppif config.VppManagerInterface) (err
 	}
 
 	// Linux side tap setup
-	link, err := netlink.LinkByName(v.params.MainInterface[idx])
+	link, err := netlink.LinkByName(v.params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
-		return errors.Wrapf(err, "cannot find interface named %s", v.params.MainInterface[idx])
+		return errors.Wrapf(err, "cannot find interface named %s", v.params.InterfacesSpecs[idx].MainInterface)
 	}
 
 	err = v.configureLinuxTap(link, idx)
@@ -614,7 +614,7 @@ func (v *VppRunner) runVpp() (err error) {
 	vppCmd.Stdout = os.Stdout
 	vppCmd.Stderr = os.Stderr
 	err = vppCmd.Start()
-	for idx := 0; idx < len(v.params.MainInterface); idx++ {
+	for idx := 0; idx < len(v.params.InterfacesSpecs); idx++ {
 		defer v.restoreConfiguration(idx)
 	}
 	if err != nil {
@@ -636,7 +636,7 @@ func (v *VppRunner) runVpp() (err error) {
 		return fmt.Errorf("cannot connect to VPP after 10 tries")
 	}
 
-	for idx := 0; idx < len(v.params.MainInterface); idx++ {
+	for idx := 0; idx < len(v.params.InterfacesSpecs); idx++ {
 		vppifindex, err := v.uplinkDriver[idx].CreateMainVppInterface(vpp, vppProcess.Pid, idx)
 		if err != nil {
 			terminateVpp("Error creating main interface (SIGINT %d): %v", vppProcess.Pid, err)
@@ -645,12 +645,10 @@ func (v *VppRunner) runVpp() (err error) {
 			return errors.Wrap(err, "Error creating main interface")
 		}
 
-		vppif := config.VppManagerInterface{
-			SwIfIndex: vppifindex,
-			HostIfTag: "host-" + v.params.MainInterface[idx]}
-
+		v.params.InterfacesSpecs[idx].SwIfIndex = vppifindex
+		v.params.InterfacesSpecs[idx].HostIfTag = "host-" + v.params.InterfacesSpecs[idx].MainInterface
 		// Data interface configuration
-		err = v.vpp.Retry(2*time.Second, 10, v.vpp.InterfaceAdminUp, vppif.SwIfIndex)
+		err = v.vpp.Retry(2*time.Second, 10, v.vpp.InterfaceAdminUp, v.params.InterfacesSpecs[idx].SwIfIndex)
 		if err != nil {
 			terminateVpp("Error setting main interface up (SIGINT %d): %v", vppProcess.Pid, err)
 			v.vpp.Close()
@@ -667,7 +665,7 @@ func (v *VppRunner) runVpp() (err error) {
 		go v.routeWatcher.WatchRoutes()
 
 		// Configure VPP
-		err = v.configureVpp(idx, vppif)
+		err = v.configureVpp(idx)
 
 		if err != nil {
 			terminateVpp("Error configuring VPP (SIGINT %d): %v", vppProcess.Pid, err)

@@ -29,9 +29,24 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func getInterfaceConfig(params *config.VppManagerParams, idx int) (conf *config.InterfaceConfig, err error) {
-	conf, err = loadInterfaceConfigFromLinux(params, idx)
-	if err == nil {
+func getInterfaceConfig(params *config.VppManagerParams) (conf *config.InterfaceConfig, err error) {
+	errs := []error{}
+	confs := []*config.LinuxInterfaceState{}
+	for idx := range params.InterfacesSpecs {
+		configuration, err := loadInterfaceConfigFromLinux(params, idx)
+		errs = append(errs, err)
+		confs = append(confs, configuration)
+	}
+	allLoaded := true
+	for i := range errs {
+		if errs[i] != nil {
+			allLoaded = false
+			err = errs[i]
+			break
+		}
+	}
+	conf = &config.InterfaceConfig{InterfacesConfigs: confs}
+	if allLoaded {
 		err = saveConfig(params, conf)
 		if err != nil {
 			log.Warnf("Could not save interface config: %v", err)
@@ -39,36 +54,44 @@ func getInterfaceConfig(params *config.VppManagerParams, idx int) (conf *config.
 	} else {
 		// Loading config failed, try loading from save file
 		log.Warnf("Could not load config from linux (%v), trying file...", err)
-		conf, err2 := loadInterfaceConfigFromFile(params)
+		conf_file, err2 := loadInterfaceConfigFromFile(params)
 		if err2 != nil {
 			log.Warnf("Could not load saved config: %v", err2)
 			// Return original error
 			return nil, err
 		}
-		log.Infof("Loaded config. Interface marked as down since loading config from linux failed.")
+		// If loaded from file replace non loaded interface configs
+		for i := range conf.InterfacesConfigs {
+			if conf.InterfacesConfigs[i] == nil {
+				conf.InterfacesConfigs[i] = conf_file.InterfacesConfigs[i]
+			}
+		}
+		log.Infof("Loaded config. Interfaces marked as down since loading config from linux failed.")
 		// This ensures we don't try to set the interface down in runVpp()
-		conf.IsUp = false
+		for _, config := range conf.InterfacesConfigs {
+			config.IsUp = false
+		}
 	}
 	return conf, nil
 }
 
-func loadInterfaceConfigFromLinux(params *config.VppManagerParams, idx int) (*config.InterfaceConfig, error) {
-	conf := config.InterfaceConfig{}
-	link, err := netlink.LinkByName(params.MainInterface[idx])
+func loadInterfaceConfigFromLinux(params *config.VppManagerParams, idx int) (*config.LinuxInterfaceState, error) {
+	conf := config.LinuxInterfaceState{}
+	link, err := netlink.LinkByName(params.InterfacesSpecs[idx].MainInterface)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot find interface named %s", params.MainInterface[idx])
+		return nil, errors.Wrapf(err, "cannot find interface named %s", params.InterfacesSpecs[idx].MainInterface)
 	}
 	conf.IsUp = (link.Attrs().Flags & net.FlagUp) != 0
 	if conf.IsUp {
 		// Grab addresses and routes
 		conf.Addresses, err = netlink.AddrList(link, netlink.FAMILY_ALL)
 		if err != nil {
-			return nil, errors.Wrapf(err, "cannot list %s addresses", params.MainInterface[idx])
+			return nil, errors.Wrapf(err, "cannot list %s addresses", params.InterfacesSpecs[idx].MainInterface)
 		}
 
 		conf.Routes, err = netlink.RouteList(link, netlink.FAMILY_ALL)
 		if err != nil {
-			return nil, errors.Wrapf(err, "cannot list %s routes", params.MainInterface[idx])
+			return nil, errors.Wrapf(err, "cannot list %s routes", params.InterfacesSpecs[idx].MainInterface)
 		}
 		conf.SortRoutes()
 	}
@@ -87,10 +110,10 @@ func loadInterfaceConfigFromLinux(params *config.VppManagerParams, idx int) (*co
 	conf.NumRxQueues = link.Attrs().NumRxQueues
 	conf.Mtu = link.Attrs().MTU
 
-	pciId, err := utils.GetInterfacePciId(params.MainInterface[idx])
+	pciId, err := utils.GetInterfacePciId(params.InterfacesSpecs[idx].MainInterface)
 	// We allow PCI not to be found e.g for AF_PACKET
 	if err != nil || pciId == "" {
-		log.Warnf("Could not find pci device for %s", params.MainInterface[idx])
+		log.Warnf("Could not find pci device for %s", params.InterfacesSpecs[idx].MainInterface)
 	} else {
 		conf.PciId = pciId
 		driver, err := utils.GetDriverNameFromPci(pciId)
@@ -98,14 +121,14 @@ func loadInterfaceConfigFromLinux(params *config.VppManagerParams, idx int) (*co
 			return nil, err
 		}
 		conf.Driver = driver
-		if params.NewDriverName[idx] != "" && params.NewDriverName[idx] != conf.Driver {
+		if params.InterfacesSpecs[idx].NewDriverName != "" && params.InterfacesSpecs[idx].NewDriverName != conf.Driver {
 			conf.DoSwapDriver = true
 		}
 	}
 	return &conf, nil
 }
 
-func getNodeAddress(conf *config.InterfaceConfig, isV6 bool) string {
+func getNodeAddress(conf *config.LinuxInterfaceState, isV6 bool) string {
 	for _, addr := range conf.Addresses {
 		if vpplink.IsIP6(addr.IP) == isV6 {
 			if !isV6 || !addr.IP.IsLinkLocalUnicast() {

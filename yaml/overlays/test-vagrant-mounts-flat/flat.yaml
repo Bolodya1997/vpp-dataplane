@@ -61,6 +61,10 @@ spec:
               value: polling
             - name: CALICOVPP_TAP_RX_MODE
               value: polling
+            - name: CALICOVPP_IP_CONFIG
+              value: linux-linux
+            - name: CALICOVPP_SWAP_DRIVER
+              value: af_packet-af_packet
         - name: agent
           env:
             - name: CALICOVPP_TAP_RX_MODE
