@@ -17,7 +17,6 @@ package uplink
 
 import (
 	"fmt"
-	"io/ioutil"
 	"regexp"
 	"time"
 
@@ -44,15 +43,15 @@ func (d *DPDKDriver) IsSupported(warn bool) (supported bool) {
 	return supported
 }
 
-func (d *DPDKDriver) PreconfigureLinux(idx int) (err error) {
-	d.removeLinuxIfConf(true /* down */, idx)
+func (d *DPDKDriver) PreconfigureLinux() (err error) {
+	d.removeLinuxIfConf(true /* down */)
 	finalDriver := d.conf.Driver
 	if d.conf.DoSwapDriver {
-		err = utils.SwapDriver(d.conf.PciId, d.params.InterfacesSpecs[idx].NewDriverName, true)
+		err = utils.SwapDriver(d.conf.PciId, d.spec.NewDriverName, true)
 		if err != nil {
-			log.Warnf("Failed to swap driver to %s: %v", d.params.InterfacesSpecs[idx].NewDriverName, err)
+			log.Warnf("Failed to swap driver to %s: %v", d.spec.NewDriverName, err)
 		}
-		finalDriver = d.params.InterfacesSpecs[idx].NewDriverName
+		finalDriver = d.spec.NewDriverName
 	}
 	if finalDriver == config.DRIVER_VFIO_PCI && d.params.AvailableHugePages == 0 {
 		err := utils.SetVfioUnsafeiommu(false)
@@ -63,8 +62,7 @@ func (d *DPDKDriver) PreconfigureLinux(idx int) (err error) {
 	return nil
 }
 
-func (d *DPDKDriver) GenerateVppConfigFile() error {
-	template := config.TemplateScriptReplace(d.params.ConfigTemplate, d.params, d.conf)
+func (d *DPDKDriver) UpdateVppConfigFile(template string) string {
 	dpdkPluginRegex := regexp.MustCompile(`plugin\s+dpdk_plugin.so\s+{\s+disable\s+}`)
 	template = dpdkPluginRegex.ReplaceAllString(template, "plugin dpdk_plugin.so { enable }")
 
@@ -93,33 +91,29 @@ func (d *DPDKDriver) GenerateVppConfigFile() error {
 	}
 
 write:
-	return errors.Wrapf(
-		ioutil.WriteFile(config.VppConfigFile, []byte(template+"\n"), 0644),
-		"Error writing VPP configuration to %s",
-		config.VppConfigFile,
-	)
+	return template
 }
 
-func (d *DPDKDriver) restoreInterfaceName(idx int) error {
+func (d *DPDKDriver) restoreInterfaceName() error {
 	newName, err := utils.GetInterfaceNameFromPci(d.conf.PciId)
 	if err != nil {
 		return errors.Wrapf(err, "Error getting new if name for %s: %v", d.conf.PciId)
 	}
-	if newName == d.params.InterfacesSpecs[idx].MainInterface {
+	if newName == d.spec.MainInterface {
 		return nil
 	}
 	link, err := netlink.LinkByName(newName)
 	if err != nil {
 		return errors.Wrapf(err, "Error getting new link %s: %v", newName)
 	}
-	err = netlink.LinkSetName(link, d.params.InterfacesSpecs[idx].MainInterface)
+	err = netlink.LinkSetName(link, d.spec.MainInterface)
 	if err != nil {
 		return errors.Wrapf(err, "Error setting new if name for %s: %v", d.conf.PciId)
 	}
 	return nil
 }
 
-func (d *DPDKDriver) RestoreLinux(idx int) {
+func (d *DPDKDriver) RestoreLinux() {
 	if d.conf.PciId != "" && d.conf.Driver != "" {
 		err := utils.SwapDriver(d.conf.PciId, d.conf.Driver, false)
 		if err != nil {
@@ -128,7 +122,7 @@ func (d *DPDKDriver) RestoreLinux(idx int) {
 	}
 
 	for i := 0; i < 10; i++ {
-		err := d.restoreInterfaceName(idx)
+		err := d.restoreInterfaceName()
 		if err != nil {
 			log.Warnf("Error restoring if name %s", err)
 		} else {
@@ -142,9 +136,9 @@ func (d *DPDKDriver) RestoreLinux(idx int) {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.spec.MainInterface)
 	if err != nil {
-		log.Warnf("Error seting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Warnf("Error seting %s up: %v", d.spec.MainInterface, err)
 		return
 	}
 
@@ -152,15 +146,16 @@ func (d *DPDKDriver) RestoreLinux(idx int) {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *DPDKDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
+func (d *DPDKDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (swIfIndex uint32, err error) {
 	/* Nothing to do VPP autocreates */
 	return 0, nil
 }
 
-func NewDPDKDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *DPDKDriver {
+func NewDPDKDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) *DPDKDriver {
 	d := &DPDKDriver{}
 	d.name = NATIVE_DRIVER_DPDK
 	d.conf = conf
 	d.params = params
+	d.spec = spec
 	return d
 }

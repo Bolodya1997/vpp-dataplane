@@ -17,7 +17,6 @@ package uplink
 
 import (
 	"fmt"
-	"io/ioutil"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -44,16 +43,17 @@ type UplinkDriverData struct {
 	conf   *config.LinuxInterfaceState
 	params *config.VppManagerParams
 	name   string
+	spec   *config.InterfaceSpec
 }
 
 type UplinkDriver interface {
-	PreconfigureLinux(idx int) error
-	CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (uint32, error)
-	RestoreLinux(idx int)
+	PreconfigureLinux() error
+	CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (uint32, error)
+	RestoreLinux()
 	IsSupported(warn bool) bool
 	GetName() string
-	GenerateVppConfigExecFile() error
-	GenerateVppConfigFile() error
+	UpdateVppConfigExecFile(template string) string
+	UpdateVppConfigFile(template string) string
 }
 
 func (d *UplinkDriverData) GetName() string {
@@ -79,10 +79,10 @@ func (d *UplinkDriverData) moveInterfaceToNS(ifName string, pid int) error {
 	return nil
 }
 
-func (d *UplinkDriverData) removeLinuxIfConf(setIfDown bool, idx int) {
-	link, err := netlink.LinkByName(d.params.InterfacesSpecs[idx].MainInterface)
+func (d *UplinkDriverData) removeLinuxIfConf(setIfDown bool) {
+	link, err := netlink.LinkByName(d.spec.MainInterface)
 	if err != nil {
-		log.Errorf("Error finding link %s: %s", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Errorf("Error finding link %s: %s", d.spec.MainInterface, err)
 	} else {
 		// Remove routes to not have them conflict with vpptap0
 		for _, route := range d.conf.Routes {
@@ -105,7 +105,7 @@ func (d *UplinkDriverData) removeLinuxIfConf(setIfDown bool, idx int) {
 			if err != nil {
 				// In case it still succeeded
 				netlink.LinkSetUp(link)
-				log.Errorf("Error setting link %s down: %s", d.params.InterfacesSpecs[idx].MainInterface, err)
+				log.Errorf("Error setting link %s down: %s", d.spec.MainInterface, err)
 			}
 		}
 	}
@@ -136,81 +136,70 @@ func (d *UplinkDriverData) restoreLinuxIfConf(link netlink.Link) {
 
 }
 
-func (d *UplinkDriverData) GenerateVppConfigExecFile() error {
-	template := config.TemplateScriptReplace(d.params.ConfigExecTemplate, d.params, d.conf)
-	err := errors.Wrapf(
-		ioutil.WriteFile(config.VppConfigExecFile, []byte(template+"\n"), 0744),
-		"Error writing VPP Exec configuration to %s",
-		config.VppConfigExecFile,
-	)
-	return err
+func (d *UplinkDriverData) UpdateVppConfigFile(template string) string {
+	return template
 }
 
-func (d *UplinkDriverData) GenerateVppConfigFile() error {
-	template := config.TemplateScriptReplace(d.params.ConfigTemplate, d.params, d.conf)
-	return errors.Wrapf(
-		ioutil.WriteFile(config.VppConfigFile, []byte(template+"\n"), 0644),
-		"Error writing VPP configuration to %s",
-		config.VppConfigFile,
-	)
+func (d *UplinkDriverData) UpdateVppConfigExecFile(template string) string {
+	return template
 }
 
-func (d *UplinkDriverData) getGenericVppInterface(idx int) types.GenericVppInterface {
+func (d *UplinkDriverData) getGenericVppInterface() types.GenericVppInterface {
 	return types.GenericVppInterface{
 		NumRxQueues:       d.params.NumRxQueues,
 		RxQueueSize:       d.params.RxQueueSize,
 		TxQueueSize:       d.params.TxQueueSize,
 		NumTxQueues:       d.params.NumTxQueues,
 		HardwareAddr:      &d.conf.HardwareAddr,
-		HostInterfaceName: d.params.InterfacesSpecs[idx].MainInterface,
+		HostInterfaceName: d.spec.MainInterface,
 	}
 }
 
-func SupportedUplinkDrivers(params *config.VppManagerParams, conf *config.LinuxInterfaceState) []UplinkDriver {
+func SupportedUplinkDrivers(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) []UplinkDriver {
 	lst := make([]UplinkDriver, 0)
 
-	if d := NewVirtioDriver(params, conf); d.IsSupported(false /* warn */) {
+	if d := NewVirtioDriver(params, conf, spec); d.IsSupported(false /* warn */) {
 		lst = append(lst, d)
 	}
-	if d := NewAVFDriver(params, conf); d.IsSupported(false /* warn */) {
+	if d := NewAVFDriver(params, conf, spec); d.IsSupported(false /* warn */) {
 		lst = append(lst, d)
 	}
-	if d := NewRDMADriver(params, conf); d.IsSupported(false /* warn */) {
+	if d := NewRDMADriver(params, conf, spec); d.IsSupported(false /* warn */) {
 		lst = append(lst, d)
 	}
-	if d := NewVmxnet3Driver(params, conf); d.IsSupported(false /* warn */) {
+	if d := NewVmxnet3Driver(params, conf, spec); d.IsSupported(false /* warn */) {
 		lst = append(lst, d)
 	}
-	if d := NewAFXDPDriver(params, conf); d.IsSupported(false /* warn */) {
+	if d := NewAFXDPDriver(params, conf, spec); d.IsSupported(false /* warn */) {
 		lst = append(lst, d)
 	}
-	if d := NewAFPacketDriver(params, conf); d.IsSupported(false /* warn */) {
+	if d := NewAFPacketDriver(params, conf, spec); d.IsSupported(false /* warn */) {
 		lst = append(lst, d)
 	}
 	return lst
 }
 
-func NewUplinkDriver(name string, params *config.VppManagerParams, conf *config.LinuxInterfaceState) (d UplinkDriver) {
+func NewUplinkDriver(name string, params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) (d UplinkDriver) {
 	switch name {
 	case NATIVE_DRIVER_RDMA:
-		d = NewRDMADriver(params, conf)
+		d = NewRDMADriver(params, conf, spec)
 	case NATIVE_DRIVER_VMXNET3:
-		d = NewVmxnet3Driver(params, conf)
+		d = NewVmxnet3Driver(params, conf, spec)
 	case NATIVE_DRIVER_AF_PACKET:
-		d = NewAFPacketDriver(params, conf)
+		d = NewAFPacketDriver(params, conf, spec)
 	case NATIVE_DRIVER_AF_XDP:
-		d = NewAFXDPDriver(params, conf)
+		d = NewAFXDPDriver(params, conf, spec)
 	case NATIVE_DRIVER_VIRTIO:
-		d = NewVirtioDriver(params, conf)
+		d = NewVirtioDriver(params, conf, spec)
 	case NATIVE_DRIVER_AVF:
-		d = NewAVFDriver(params, conf)
+		d = NewAVFDriver(params, conf, spec)
 	case NATIVE_DRIVER_DPDK:
-		d = NewDPDKDriver(params, conf)
+		d = NewDPDKDriver(params, conf, spec)
 	case NATIVE_DRIVER_NONE:
 		fallthrough
 	default:
 		log.Warnf("Using default driver")
-		d = NewDefaultDriver(params, conf)
+		d = NewDefaultDriver(params, conf, spec)
 	}
 	d.IsSupported(true /* warn */)
 	return d

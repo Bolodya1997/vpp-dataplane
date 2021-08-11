@@ -52,10 +52,10 @@ func (d *AVFDriver) IsSupported(warn bool) (supported bool) {
 	return supported
 }
 
-func (d *AVFDriver) PreconfigureLinux(idx int) (err error) {
-	pciId, err := utils.GetInterfacePciId(d.params.InterfacesSpecs[idx].MainInterface)
+func (d *AVFDriver) PreconfigureLinux() (err error) {
+	pciId, err := utils.GetInterfacePciId(d.spec.MainInterface)
 	if err != nil {
-		return errors.Wrapf(err, "cannot get interface %s pciID", d.params.InterfacesSpecs[idx].MainInterface)
+		return errors.Wrapf(err, "cannot get interface %s pciID", d.spec.MainInterface)
 	}
 
 	numVFs, err := utils.GetInterfaceNumVFs(pciId)
@@ -67,34 +67,34 @@ func (d *AVFDriver) PreconfigureLinux(idx int) (err error) {
 		/* This is a PF */
 		d.pfPCI = pciId
 		if numVFs == 0 {
-			log.Infof("Creating a VF for %s", d.params.InterfacesSpecs[idx].MainInterface)
+			log.Infof("Creating a VF for %s", d.spec.MainInterface)
 			err := utils.CreateInterfaceVF(pciId)
 			if err != nil {
-				return errors.Wrapf(err, "Couldnt create VF for %s", d.params.InterfacesSpecs[idx].MainInterface)
+				return errors.Wrapf(err, "Couldnt create VF for %s", d.spec.MainInterface)
 			}
 
 			/* Create a mac for the new VF */
-			link, err := netlink.LinkByName(d.params.InterfacesSpecs[idx].MainInterface)
+			link, err := netlink.LinkByName(d.spec.MainInterface)
 			if err != nil {
-				return errors.Wrapf(err, "Couldnt find Interface %s", d.params.InterfacesSpecs[idx].MainInterface)
+				return errors.Wrapf(err, "Couldnt find Interface %s", d.spec.MainInterface)
 			}
 			hardwareAddr := utils.CycleHardwareAddr(d.conf.HardwareAddr, 7)
 			err = netlink.LinkSetVfHardwareAddr(link, 0 /* vf */, hardwareAddr)
 			if err != nil {
-				return errors.Wrapf(err, "Couldnt set VF 0 hwaddr %s", d.params.InterfacesSpecs[idx].MainInterface)
+				return errors.Wrapf(err, "Couldnt set VF 0 hwaddr %s", d.spec.MainInterface)
 			}
 		}
 		vfPCI, err := utils.GetInterfaceVFPciId(pciId)
 		if err != nil {
-			return errors.Wrapf(err, "Couldnt get VF pciID for %s", d.params.InterfacesSpecs[idx].MainInterface)
+			return errors.Wrapf(err, "Couldnt get VF pciID for %s", d.spec.MainInterface)
 		}
 		d.vfPCI = vfPCI
 	}
 
 	if d.pfPCI != "" {
-		err := utils.SetVFSpoofTrust(d.params.InterfacesSpecs[idx].MainInterface, 0 /* vf */, false /* spoof */, true /* trust */)
+		err := utils.SetVFSpoofTrust(d.spec.MainInterface, 0 /* vf */, false /* spoof */, true /* trust */)
 		if err != nil {
-			return errors.Wrapf(err, "Couldnt set VF spoof off trust on %s", d.params.InterfacesSpecs[idx].MainInterface)
+			return errors.Wrapf(err, "Couldnt set VF spoof off trust on %s", d.spec.MainInterface)
 		}
 	}
 
@@ -109,20 +109,20 @@ func (d *AVFDriver) PreconfigureLinux(idx int) (err error) {
 		}
 	}
 
-	d.removeLinuxIfConf(true /* down */, idx)
+	d.removeLinuxIfConf(true /* down */)
 
 	return nil
 }
 
-func (d *AVFDriver) RestoreLinux(idx int) {
+func (d *AVFDriver) RestoreLinux() {
 	if !d.conf.IsUp {
 		return
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.spec.MainInterface)
 	if err != nil {
-		log.Warnf("Error setting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Warnf("Error setting %s up: %v", d.spec.MainInterface, err)
 		return
 	}
 
@@ -130,18 +130,18 @@ func (d *AVFDriver) RestoreLinux(idx int) {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *AVFDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
+func (d *AVFDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (swIfIndex uint32, err error) {
 	if d.pfPCI != "" {
 		/* We were passed a PF, move it to vpp's NS so it doesn't
 		   conflict with vpptap0 */
-		err := d.moveInterfaceToNS(d.params.InterfacesSpecs[idx].MainInterface, vppPid)
+		err := d.moveInterfaceToNS(d.spec.MainInterface, vppPid)
 		if err != nil {
 			return 0, errors.Wrap(err, "Moving uplink in NS failed")
 		}
 	}
 
 	intf := types.AVFInterface{
-		GenericVppInterface: d.getGenericVppInterface(idx),
+		GenericVppInterface: d.getGenericVppInterface(),
 		PciId:               d.vfPCI,
 	}
 	swIfIndex, err = vpp.CreateAVF(&intf)
@@ -155,16 +155,17 @@ func (d *AVFDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx
 		return 0, errors.Wrapf(err, "Error setting AVF promisc on")
 	}
 
-	if idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
+	if d.spec.Idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
 		return 0, fmt.Errorf("Created AVF interface has wrong swIfIndex %d!", swIfIndex)
 	}
 	return swIfIndex, nil
 }
 
-func NewAVFDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *AVFDriver {
+func NewAVFDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) *AVFDriver {
 	d := &AVFDriver{}
 	d.name = NATIVE_DRIVER_AVF
 	d.conf = conf
 	d.params = params
+	d.spec = spec
 	return d
 }

@@ -55,8 +55,8 @@ func (d *VirtioDriver) IsSupported(warn bool) (supported bool) {
 	return supported
 }
 
-func (d *VirtioDriver) PreconfigureLinux(idx int) (err error) {
-	newDriverName := d.params.InterfacesSpecs[idx].NewDriverName
+func (d *VirtioDriver) PreconfigureLinux() (err error) {
+	newDriverName := d.spec.NewDriverName
 	doSwapDriver := d.conf.DoSwapDriver
 	if newDriverName == "" {
 		newDriverName = config.DRIVER_VFIO_PCI
@@ -69,7 +69,7 @@ func (d *VirtioDriver) PreconfigureLinux(idx int) (err error) {
 			return errors.Wrapf(err, "Virtio preconfigure error")
 		}
 	}
-	d.removeLinuxIfConf(true /* down */, idx)
+	d.removeLinuxIfConf(true /* down */)
 	if doSwapDriver {
 		err = utils.SwapDriver(d.conf.PciId, newDriverName, true)
 		if err != nil {
@@ -79,7 +79,7 @@ func (d *VirtioDriver) PreconfigureLinux(idx int) (err error) {
 	return nil
 }
 
-func (d *VirtioDriver) RestoreLinux(idx int) {
+func (d *VirtioDriver) RestoreLinux() {
 	if !d.params.VfioUnsafeiommu {
 		err := utils.SetVfioUnsafeiommu(false)
 		if err != nil {
@@ -97,9 +97,9 @@ func (d *VirtioDriver) RestoreLinux(idx int) {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.spec.MainInterface)
 	if err != nil {
-		log.Warnf("Error setting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Warnf("Error setting %s up: %v", d.spec.MainInterface, err)
 		return
 	}
 
@@ -107,9 +107,9 @@ func (d *VirtioDriver) RestoreLinux(idx int) {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *VirtioDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
+func (d *VirtioDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (swIfIndex uint32, err error) {
 	intf := types.VirtioInterface{
-		GenericVppInterface: d.getGenericVppInterface(idx),
+		GenericVppInterface: d.getGenericVppInterface(),
 		PciId:               d.conf.PciId,
 	}
 	swIfIndex, err = vpp.CreateVirtio(&intf)
@@ -118,16 +118,17 @@ func (d *VirtioDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, 
 	}
 	log.Infof("Created VIRTIO interface %d", swIfIndex)
 
-	if idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
+	if d.spec.Idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
 		return 0, fmt.Errorf("Created VIRTIO interface has wrong swIfIndex %d!", swIfIndex)
 	}
 	return swIfIndex, nil
 }
 
-func NewVirtioDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *VirtioDriver {
+func NewVirtioDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) *VirtioDriver {
 	d := &VirtioDriver{}
 	d.name = NATIVE_DRIVER_VIRTIO
 	d.conf = conf
 	d.params = params
+	d.spec = spec
 	return d
 }

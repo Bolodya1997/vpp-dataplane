@@ -178,8 +178,8 @@ func parseEnvVariables(params *config.VppManagerParams) (err error) {
 	if len(mainInterfaces) == 0 || mainInterfaces[0] == "" {
 		return errors.Errorf("No interface specified. Specify an interface through the %s environment variable", InterfaceEnvVar)
 	}
-	for _, ele := range mainInterfaces {
-		params.InterfacesSpecs = append(params.InterfacesSpecs, config.InterfaceSpec{MainInterface: ele})
+	for idx, ele := range mainInterfaces {
+		params.InterfacesSpecs = append(params.InterfacesSpecs, config.InterfaceSpec{MainInterface: ele, Idx: idx})
 	}
 
 	params.ConfigExecTemplate = getEnvValue(ConfigExecTemplateEnvVar)

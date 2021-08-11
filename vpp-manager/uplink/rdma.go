@@ -43,21 +43,21 @@ func (d *RDMADriver) IsSupported(warn bool) (supported bool) {
 	return supported
 }
 
-func (d *RDMADriver) PreconfigureLinux(idx int) (err error) {
-	d.removeLinuxIfConf(true /* down */, idx)
+func (d *RDMADriver) PreconfigureLinux() (err error) {
+	d.removeLinuxIfConf(true /* down */)
 	return nil
 }
 
-func (d *RDMADriver) RestoreLinux(idx int) {
+func (d *RDMADriver) RestoreLinux() {
 
 	if !d.conf.IsUp {
 		return
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.spec.MainInterface)
 	if err != nil {
-		log.Warnf("Error setting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Warnf("Error setting %s up: %v", d.spec.MainInterface, err)
 		return
 	}
 
@@ -65,9 +65,9 @@ func (d *RDMADriver) RestoreLinux(idx int) {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *RDMADriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
+func (d *RDMADriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (swIfIndex uint32, err error) {
 	intf := types.RDMAInterface{
-		GenericVppInterface: d.getGenericVppInterface(idx),
+		GenericVppInterface: d.getGenericVppInterface(),
 	}
 	swIfIndex, err = vpp.CreateRDMA(&intf)
 
@@ -75,23 +75,24 @@ func (d *RDMADriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, id
 		return 0, errors.Wrapf(err, "Error creating RDMA interface")
 	}
 
-	err = d.moveInterfaceToNS(d.params.InterfacesSpecs[idx].MainInterface, vppPid)
+	err = d.moveInterfaceToNS(d.spec.MainInterface, vppPid)
 	if err != nil {
 		return 0, errors.Wrap(err, "Moving uplink in NS failed")
 	}
 
 	log.Infof("Created RDMA interface %d", swIfIndex)
 
-	if idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
+	if d.spec.Idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
 		return 0, fmt.Errorf("Created RDMA interface has wrong swIfIndex %d!", swIfIndex)
 	}
 	return swIfIndex, nil
 }
 
-func NewRDMADriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *RDMADriver {
+func NewRDMADriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) *RDMADriver {
 	d := &RDMADriver{}
 	d.name = NATIVE_DRIVER_RDMA
 	d.conf = conf
 	d.params = params
+	d.spec = spec
 	return d
 }

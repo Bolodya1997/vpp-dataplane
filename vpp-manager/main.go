@@ -156,7 +156,7 @@ func main() {
 	makeNewVPPIndex()
 
 	if numberOfIfs == 1 && params.InterfacesSpecs[0].NativeDriver == "" {
-		for _, driver := range uplink.SupportedUplinkDrivers(params, confs.InterfacesConfigs[0]) {
+		for _, driver := range uplink.SupportedUplinkDrivers(params, confs.InterfacesConfigs[0], &params.InterfacesSpecs[0]) {
 			internalKill = false
 			err := runner.Run([]uplink.UplinkDriver{driver})
 			if err != nil {
@@ -173,7 +173,8 @@ func main() {
 	} else {
 		var drivers []uplink.UplinkDriver
 		for idx := 0; idx < numberOfIfs; idx++ {
-			drivers = append(drivers, uplink.NewUplinkDriver(params.InterfacesSpecs[idx].NativeDriver, params, confs.InterfacesConfigs[idx]))
+			drivers = append(drivers, uplink.NewUplinkDriver(params.InterfacesSpecs[idx].NativeDriver,
+				params, confs.InterfacesConfigs[idx], &params.InterfacesSpecs[idx]))
 		}
 		err := runner.Run(drivers)
 

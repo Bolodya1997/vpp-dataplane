@@ -37,22 +37,22 @@ func (d *DefaultDriver) IsSupported(warn bool) bool {
 	return false
 }
 
-func (d *DefaultDriver) PreconfigureLinux(idx int) (err error) {
-	d.removeLinuxIfConf(true /* down */, idx)
+func (d *DefaultDriver) PreconfigureLinux() (err error) {
+	d.removeLinuxIfConf(true /* down */)
 	if d.conf.DoSwapDriver {
 		if d.conf.PciId == "" {
 			log.Warnf("PCI ID not found, not swapping drivers")
 		} else {
-			err = utils.SwapDriver(d.conf.PciId, d.params.InterfacesSpecs[idx].NewDriverName, true)
+			err = utils.SwapDriver(d.conf.PciId, d.spec.NewDriverName, true)
 			if err != nil {
-				log.Warnf("Failed to swap driver to %s: %v", d.params.InterfacesSpecs[idx].NewDriverName, err)
+				log.Warnf("Failed to swap driver to %s: %v", d.spec.NewDriverName, err)
 			}
 		}
 	}
 	return nil
 }
 
-func (d *DefaultDriver) RestoreLinux(idx int) {
+func (d *DefaultDriver) RestoreLinux() {
 	if d.conf.PciId != "" && d.conf.Driver != "" {
 		err := utils.SwapDriver(d.conf.PciId, d.conf.Driver, false)
 		if err != nil {
@@ -64,9 +64,9 @@ func (d *DefaultDriver) RestoreLinux(idx int) {
 	}
 	// This assumes the link has kept the same name after the rebind.
 	// It should be always true on systemd based distros
-	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.spec.MainInterface)
 	if err != nil {
-		log.Warnf("Error seting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Warnf("Error seting %s up: %v", d.spec.MainInterface, err)
 		return
 	}
 
@@ -74,21 +74,22 @@ func (d *DefaultDriver) RestoreLinux(idx int) {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *DefaultDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
+func (d *DefaultDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (swIfIndex uint32, err error) {
 	// If interface is still in the host, move it to vpp netns to allow creation of the tap
-	err = d.moveInterfaceToNS(d.params.InterfacesSpecs[idx].MainInterface, vppPid)
+	err = d.moveInterfaceToNS(d.spec.MainInterface, vppPid)
 	if err != nil {
-		log.Infof("Did NOT move interface %s to VPP netns: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Infof("Did NOT move interface %s to VPP netns: %v", d.spec.MainInterface, err)
 	} else {
-		log.Infof("Moved interface %s to VPP netns", d.params.InterfacesSpecs[idx].MainInterface)
+		log.Infof("Moved interface %s to VPP netns", d.spec.MainInterface)
 	}
 	return 0, nil
 }
 
-func NewDefaultDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *DefaultDriver {
+func NewDefaultDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) *DefaultDriver {
 	d := &DefaultDriver{}
 	d.name = NATIVE_DRIVER_NONE
 	d.conf = conf
 	d.params = params
+	d.spec = spec
 	return d
 }

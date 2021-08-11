@@ -35,26 +35,26 @@ func (d *AFPacketDriver) IsSupported(warn bool) bool {
 	return true
 }
 
-func (d *AFPacketDriver) PreconfigureLinux(idx int) error {
-	link, err := netlink.LinkByName(d.params.InterfacesSpecs[idx].MainInterface)
+func (d *AFPacketDriver) PreconfigureLinux() error {
+	link, err := netlink.LinkByName(d.spec.MainInterface)
 	if err != nil {
-		return errors.Wrapf(err, "Error finding link %s", d.params.InterfacesSpecs[idx].MainInterface)
+		return errors.Wrapf(err, "Error finding link %s", d.spec.MainInterface)
 	}
 	err = netlink.SetPromiscOn(link)
 	if err != nil {
-		return errors.Wrapf(err, "Error set link %s promisc on", d.params.InterfacesSpecs[idx].MainInterface)
+		return errors.Wrapf(err, "Error set link %s promisc on", d.spec.MainInterface)
 	}
 	return nil
 }
 
-func (d *AFPacketDriver) RestoreLinux(idx int) {
+func (d *AFPacketDriver) RestoreLinux() {
 	if !d.conf.IsUp {
 		return
 	}
 	// Interface should pop back in root ns once vpp exits
-	link, err := utils.SafeSetInterfaceUpByName(d.params.InterfacesSpecs[idx].MainInterface)
+	link, err := utils.SafeSetInterfaceUpByName(d.spec.MainInterface)
 	if err != nil {
-		log.Warnf("Error setting %s up: %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+		log.Warnf("Error setting %s up: %v", d.spec.MainInterface, err)
 		return
 	}
 
@@ -62,7 +62,7 @@ func (d *AFPacketDriver) RestoreLinux(idx int) {
 		log.Infof("Setting promisc off")
 		err = netlink.SetPromiscOff(link)
 		if err != nil {
-			log.Errorf("Error setting link %s promisc off %v", d.params.InterfacesSpecs[idx].MainInterface, err)
+			log.Errorf("Error setting link %s promisc off %v", d.spec.MainInterface, err)
 		}
 	}
 
@@ -70,14 +70,14 @@ func (d *AFPacketDriver) RestoreLinux(idx int) {
 	d.restoreLinuxIfConf(link)
 }
 
-func (d *AFPacketDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int, idx int) (swIfIndex uint32, err error) {
-	err = d.moveInterfaceToNS(d.params.InterfacesSpecs[idx].MainInterface, vppPid)
+func (d *AFPacketDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int) (swIfIndex uint32, err error) {
+	err = d.moveInterfaceToNS(d.spec.MainInterface, vppPid)
 	if err != nil {
 		return 0, errors.Wrap(err, "Moving uplink in NS failed")
 	}
 
 	intf := types.AfPacketInterface{
-		GenericVppInterface: d.getGenericVppInterface(idx),
+		GenericVppInterface: d.getGenericVppInterface(),
 	}
 	swIfIndex, err = vpp.CreateAfPacket(&intf)
 	if err != nil {
@@ -85,17 +85,18 @@ func (d *AFPacketDriver) CreateMainVppInterface(vpp *vpplink.VppLink, vppPid int
 	}
 	log.Infof("Created AF_PACKET interface %d", swIfIndex)
 
-	if idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
+	if d.spec.Idx == 0 && swIfIndex != config.DataInterfaceSwIfIndex {
 		return 0, fmt.Errorf("Created AF_PACKET interface has wrong swIfIndex %d!", swIfIndex)
 	}
 
 	return swIfIndex, nil
 }
 
-func NewAFPacketDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState) *AFPacketDriver {
+func NewAFPacketDriver(params *config.VppManagerParams, conf *config.LinuxInterfaceState, spec *config.InterfaceSpec) *AFPacketDriver {
 	d := &AFPacketDriver{}
 	d.name = NATIVE_DRIVER_AF_PACKET
 	d.conf = conf
 	d.params = params
+	d.spec = spec
 	return d
 }

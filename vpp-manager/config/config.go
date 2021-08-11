@@ -51,6 +51,7 @@ const (
 )
 
 type InterfaceSpec struct {
+	Idx             int
 	MainInterface   string
 	VppIpConfSource string
 	NativeDriver    string
@@ -199,12 +200,16 @@ func (c *LinuxInterfaceState) SortRoutes() {
 	})
 }
 
-func TemplateScriptReplace(input string, params *VppManagerParams, conf *LinuxInterfaceState) (template string) {
+func TemplateScriptReplace(input string, params *VppManagerParams, conf *InterfaceConfig) (template string) {
 	template = input
 	if conf != nil {
 		/* We might template scripts before reading interface conf */
-		template = strings.ReplaceAll(template, "__PCI_DEVICE_ID__", conf.PciId)
+		template = strings.ReplaceAll(template, "__PCI_DEVICE_ID__", conf.InterfacesConfigs[0].PciId)
+		for i, ifcConf := range conf.InterfacesConfigs {
+			template = strings.ReplaceAll(template, "__PCI_DEVICE_ID_"+strconv.Itoa(i)+"__", ifcConf.PciId)
+		}
 	}
+	template = strings.ReplaceAll(template, "__VPP_DATAPLANE_IF__", params.InterfacesSpecs[0].MainInterface)
 	for i, ifc := range params.InterfacesSpecs {
 		template = strings.ReplaceAll(template, "__VPP_DATAPLANE_IF_"+strconv.Itoa(i)+"__", ifc.MainInterface)
 	}
