@@ -45,7 +45,7 @@ type Server struct {
 	socketListener  net.Listener
 	routingServer   *routing.Server
 	policyServer    *policy.Server
-	podInterfaceMap map[string]storage.LocalPodSpec
+	PodInterfaceMap map[string]storage.LocalPodSpec
 	/* without main thread */
 	NumVPPWorkers int
 	lock          sync.Mutex
@@ -124,8 +124,9 @@ func (s *Server) Add(ctx context.Context, request *pb.AddRequest) (*pb.AddReply,
 		}, nil
 	}
 
-	s.podInterfaceMap[podSpec.Key()] = *podSpec
-	err = storage.PersistCniServerState(s.podInterfaceMap, config.CniServerStateFile)
+	podSpec.SwIfIndex = swIfIndex
+	s.PodInterfaceMap[podSpec.Key()] = *podSpec
+	err = storage.PersistCniServerState(s.PodInterfaceMap, config.CniServerStateFile)
 	if err != nil {
 		s.log.Errorf("CNI state persist errored %v", err)
 	}
@@ -164,14 +165,14 @@ func (s *Server) rescanState() error {
 			s.log.Errorf("Interface add failed %s : %v", podSpec.String(), err2)
 			err = err2
 		} else {
-			s.podInterfaceMap[podSpec.Key()] = podSpec
+			s.PodInterfaceMap[podSpec.Key()] = podSpec
 		}
 	}
 	return err
 }
 
 func (p *Server) OnVppRestart() {
-	for name, podSpec := range p.podInterfaceMap {
+	for name, podSpec := range p.PodInterfaceMap {
 		_, err := p.AddVppInterface(&podSpec, false /* doHostSideConf */)
 		if err != nil {
 			p.log.Errorf("Error re-injecting interface %s : %v", name, err)
@@ -195,7 +196,7 @@ func (s *Server) Del(ctx context.Context, request *pb.DelRequest) (*pb.DelReply,
 		}, nil
 	}
 
-	initialSpec, ok := s.podInterfaceMap[podSpec.Key()]
+	initialSpec, ok := s.PodInterfaceMap[podSpec.Key()]
 	if !ok {
 		s.log.Warnf("Deleting interface but initial spec not found")
 	} else {
@@ -206,7 +207,7 @@ func (s *Server) Del(ctx context.Context, request *pb.DelRequest) (*pb.DelReply,
 		})
 	}
 
-	delete(s.podInterfaceMap, podSpec.Key())
+	delete(s.PodInterfaceMap, podSpec.Key())
 	s.log.Infof("Interface del successful %s", podSpec.Key())
 	return &pb.DelReply{
 		Successful: true,
@@ -243,7 +244,7 @@ func NewServer(v *vpplink.VppLink, rs *routing.Server, ps *policy.Server, l *log
 		socketListener:  lis,
 		client:          client,
 		grpcServer:      grpc.NewServer(),
-		podInterfaceMap: make(map[string]storage.LocalPodSpec),
+		PodInterfaceMap: make(map[string]storage.LocalPodSpec),
 	}
 	pb.RegisterCniDataplaneServer(server.grpcServer, server)
 	l.Infof("Server starting")
