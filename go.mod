@@ -4,9 +4,7 @@ go 1.12
 
 require (
 	git.fd.io/govpp.git v0.3.6-0.20210202134006-4c1cccf48cd1
-	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/containernetworking/plugins v0.8.2
-	github.com/coreos/etcd v3.3.17+incompatible // indirect
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/gogo/protobuf v1.3.1
