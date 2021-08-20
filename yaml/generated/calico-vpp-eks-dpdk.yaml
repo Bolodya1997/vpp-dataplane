@@ -3556,7 +3556,7 @@ spec:
               fieldPath: spec.nodeName
         - name: CALICOVPP_CORE_PATTERN
           value: /var/lib/vpp/vppcore.%e.%p
-        image: docker.io/calicovpp/vpp:v0.13.0-calicov3.17.1
+        image: docker.io/rrandom312/vpp:latest
         imagePullPolicy: IfNotPresent
         name: vpp
         resources:
@@ -3634,7 +3634,7 @@ spec:
           value: /bin/felix-api-proxy
         - name: FELIX_XDPENABLED
           value: "false"
-        image: docker.io/calicovpp/node:v0.13.0-calicov3.17.1
+        image: docker.io/rrandom312/node:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
@@ -3682,7 +3682,7 @@ spec:
       - env:
         - name: NR_HUGEPAGES
           value: "512"
-        image: calicovpp/init-eks:prerelease
+        image: rrandom312/init-eks:latest
         imagePullPolicy: IfNotPresent
         name: calicovpp-init-eks
         resources:

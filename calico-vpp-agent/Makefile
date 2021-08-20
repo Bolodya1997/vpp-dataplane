@@ -22,22 +22,22 @@ image: build gobgp
 	@echo "Image tag                   : $(TAG)"                         > $(VERSION_FILE)
 	@echo "VPP-dataplane version       : $(shell git log -1 --oneline)" >> $(VERSION_FILE)
 	@cat $(GENERATE_LOG_FILE)                                           >> $(VERSION_FILE)
-	docker build --pull -t calicovpp/node:$(TAG) .
+	docker build --pull -t rrandom312/node:$(TAG) .
 	@if [ "${ALSO_LATEST}" = "y" ]; then \
-		docker tag calicovpp/node:$(TAG) calicovpp/node:latest; \
+		docker tag rrandom312/node:$(TAG) rrandom312/node:latest; \
 	fi
 
 push: image
-	docker push calicovpp/node:$(TAG)
+	docker push rrandom312/node:$(TAG)
 	@if [ "${ALSO_LATEST}" = "y" ]; then \
-		docker push calicovpp/node:latest; \
+		docker push rrandom312/node:latest; \
 	fi
 
 dev: build gobgp
 	@echo "Image tag                   : $(TAG)"                         > $(VERSION_FILE)
 	@echo "VPP-dataplane version       : $(shell git log -1 --oneline)" >> $(VERSION_FILE)
 	@cat $(GENERATE_LOG_FILE)                                           >> $(VERSION_FILE)
-	docker build -t calicovpp/node:$(TAG) .
+	docker build -t rrandom312/node:$(TAG) .
 
 proto:
 	$(MAKE) -C proto $@

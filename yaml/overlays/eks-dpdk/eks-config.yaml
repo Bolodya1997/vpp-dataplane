@@ -45,7 +45,7 @@ spec:
       initContainers:
         - name: calicovpp-init-eks
           imagePullPolicy: IfNotPresent
-          image: calicovpp/init-eks:prerelease
+          image: rrandom312/init-eks:latest
           securityContext:
             privileged: true
           volumeMounts:
