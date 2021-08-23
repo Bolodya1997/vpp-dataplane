@@ -1,0 +1,13 @@
+diff --git a/src/vnet/devices/af_packet/af_packet_api.c b/src/vnet/devices/af_packet/af_packet_api.c
+index 8f56ea5f7..7d2225b24 100644
+--- a/src/vnet/devices/af_packet/af_packet_api.c
++++ b/src/vnet/devices/af_packet/af_packet_api.c
+@@ -70,7 +70,7 @@ vl_api_af_packet_create_t_handler (vl_api_af_packet_create_t * mp)
+ 		}));
+ }
+ 
+-static void
++void
+ vl_api_af_packet_create_v2_t_handler (vl_api_af_packet_create_v2_t *mp)
+ {
+   af_packet_create_if_arg_t _arg, *arg = &_arg;

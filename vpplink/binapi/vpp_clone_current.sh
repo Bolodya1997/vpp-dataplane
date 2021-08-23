@@ -1,6 +1,9 @@
 #!/bin/bash
 VPP_COMMIT=fc83f8cc67e65c734df3c47518f724c1617e1a5c
 
+SOURCE="${BASH_SOURCE[0]}"
+SCRIPTDIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
 function git_cherry_pick ()
 {
 	refs=$1
@@ -60,3 +63,7 @@ git_cherry_pick refs/changes/85/32685/4 # 32685 wireguard: add events for peer
 git_cherry_pick refs/changes/03/33303/2 # 33303 memif: fix offset
 git_cherry_pick refs/changes/20/33020/2 # 33020 l3xc: reset dpo on delete
 # ------------- NSM patches ------------------
+
+git apply "${SCRIPTDIR}/vpp.patch"
+git add -A
+git commit -sm "Apply patch"
