@@ -1,12 +1,72 @@
-VPP Version                 : 21.06-rc0~395-g10f4fccf4
+VPP Version                 : 21.06.0-24~g280708fea
 Binapi-generator version    : govpp v0.4.0-dev
-VPP Base commit             : 9cc765559 avf: don't memcpy if adminq output buffer size is 0
+VPP Base commit             : 1372178e0 fib: During the mfib lookup set the unicast FIB index in the packet so that a uRPF check on a for-us packet is done in the correct VRF
 ------------------ Cherry picked commits --------------------
-10f4fccf4 capo: Calico Policies plugin
-e0a5115fd acl: acl-plugin custom policies
-de2c4bd14 cnat: fix cnat feature partial cksum
-f477e983e cnat: maglev fixes
-8cf1fe620 dpdk: implement interrupt mode
-4c0cfe7ec devices: add support for pseudo header checksum
-eac9413f7 virtio: DRAFT: multi tx support
+280708fea gerrit:33020/2 l3xc: reset dpo on delete
+0716df31a gerrit:33303/2 memif: fix offset
+fad61c03e gerrit:32685/4 wireguard: add events for peer
+5bf3b65c3 gerrit:32009/5 wireguard: add ipv6 support
+bd0ec7143 gerrit:32443/7 wireguard: use the same udp-port for multi-tunnel
+f4f06209d gerrit:32413/6 wireguard: move adjacency processing from wireguard_peer to wireguard_interface
+6a1a0be63 gerrit:33495/2 arp: source address selection
+3a06097fd gerrit:33156/3 ip-neighbor: GARP sent to bogus ip address
+b6f2c1c87 gerrit:33449/9 ip: source address selection
+635ea7218 gerrit:32235/1 dpdk: enable ena interrupt support
+cf57dc930 gerrit:28513/20 capo: Calico Policies plugin
+325f6d9cc gerrit:28083/16 acl: acl-plugin custom policies
+9ca5246e7 gerrit:31588/1 cnat: [WIP] no k8s maglev from pods
+1d07fa89f gerrit:31868/1 ip6-nd: silent the source and target checks on given interface
+176519dba gerrit:32871/1 devices: Add queues params in create_if
+920a341c3 gerrit:32483/1 virtio: Still init unused txq
+4e518e77a gerrit:32482/1 virtio: compute cksums in output no offload
+12884e2be gerrit:32476/3 gso: handle push flag in gro
+34afef738 gerrit:31869/13 gso: do not try gro on small packets
+3020d1f2d gerrit:31321/10 devices: add support for pseudo header checksum
+59cafa1e2 gerrit:29386/9 virtio: DRAFT: multi tx support
+f625693e7 gerrit:32833/1 ipsec: disable linearization
+7482733e0 gerrit:32732/1 crypto: fix sw async crypto with chained buffers
+46d058a9e gerrit:32468/3 buffers: fix buffer linearization
+fc83f8cc6 misc: 21.06 Release Notes
+3001c0344 session: free ctrl event data on connect rpc
+f68dcb720 vcl: Don't use app_socket_api to notify VPP in parent when child exited
+803ac6389 vcl: epoll fix postponed evt handling
+e19fef7c8 stats: fix race conditions in vpp-api stats client
+c5111d4fa session: avoid reordering unlisten and connect msg
+0a4b9ad14 vlib: fix coverity warning
+1cb93827f vcl: fix worker cleanup
+d1fd73a93 tls: increase engine bits room in handle to support custom engine type
+a95292ffd vcl: fix fifo sharing
+8b297dbce session: fix listener ct transport retrieval on accept
+a34aad732 tcp: fix proto in port reuse check
+6b6f413b5 vlib: fix dangling reference in node_by_name hash
+6510663c7 memif: fix crash with zero-copy slave
+3558a9a0b session: half-open free only on main thread
+7dabce402 docs: cleanup, remove stale material
+50797cda3 vcl: touch fifo on epoll del only if session open
+d0f23a316 fib: make sure dpo is valid even when path pool expands
+655c37760 fib: make sure adj is valid during walk
+6ac910e0d ipsec: fix crypto ops in esp decrypt
+f9d10e7dd vppinfra: pool_free_elts() now supports fixed-size pools
+e9b33fcbd vcl: avoid multiple reads on peek
+b635851ee vcl: avoid updating errno on ldp init check
+dd6fe0c53 tls: change picotls plugin crypto module to accommodate new version picotls
+53af06a21 vcl: accept zero length writes
+2fea186ae vcl: epoll error handling fixes and improvements
+1c20c2f77 dpdk: silence coverity warning on use of uninitialized value
+ce4716f4e build: fix build error after make wipe
+f1bd293ff nat: fix broken nat44-ed cli
+b3e5909e8 build: fix centos-8 cmake missing package dependency
+e027d8852 tests: Fix 'test-wipe'
+4b0882c9a dpdk: disable i40evf in favor of iavf patch
+76189089b svm: release mem order for fifo chunk list CAS
+5b6d2c1ae session: avoid ct connects loop
+d5f89e04a session: lcl transport info on accept
+afb0194b5 srtp: cleanup build and default to disabled
+27777bd89 misc: bug fixes and improvements for stats Fuse fs
+cd01b3a73 interface: fix vnet_sw_interface_update_unnumbered
+ce48c8774 tls: fix handling of failed accepts
+b39fac168 hsa: proxy listener support addition of fifo segments
+f5d9237c5 svm: fix inadequate atomic load for chunk mgr
+88b2269a4 vppinfra: explicit blocking mode for sock connects
+e82d59f38 misc: Initial changes for stable/2106 branch
 -------------------------------------------------------------
