@@ -1,31 +1,32 @@
-VPP Version                 : 21.06.0-24~g280708fea
+VPP Version                 : 21.06.0-25~g4e07fde74
 Binapi-generator version    : govpp v0.4.0-dev
 VPP Base commit             : 1372178e0 fib: During the mfib lookup set the unicast FIB index in the packet so that a uRPF check on a for-us packet is done in the correct VRF
 ------------------ Cherry picked commits --------------------
-280708fea gerrit:33020/2 l3xc: reset dpo on delete
-0716df31a gerrit:33303/2 memif: fix offset
-fad61c03e gerrit:32685/4 wireguard: add events for peer
-5bf3b65c3 gerrit:32009/5 wireguard: add ipv6 support
-bd0ec7143 gerrit:32443/7 wireguard: use the same udp-port for multi-tunnel
-f4f06209d gerrit:32413/6 wireguard: move adjacency processing from wireguard_peer to wireguard_interface
-6a1a0be63 gerrit:33495/2 arp: source address selection
-3a06097fd gerrit:33156/3 ip-neighbor: GARP sent to bogus ip address
-b6f2c1c87 gerrit:33449/9 ip: source address selection
-635ea7218 gerrit:32235/1 dpdk: enable ena interrupt support
-cf57dc930 gerrit:28513/20 capo: Calico Policies plugin
-325f6d9cc gerrit:28083/16 acl: acl-plugin custom policies
-9ca5246e7 gerrit:31588/1 cnat: [WIP] no k8s maglev from pods
-1d07fa89f gerrit:31868/1 ip6-nd: silent the source and target checks on given interface
-176519dba gerrit:32871/1 devices: Add queues params in create_if
-920a341c3 gerrit:32483/1 virtio: Still init unused txq
-4e518e77a gerrit:32482/1 virtio: compute cksums in output no offload
-12884e2be gerrit:32476/3 gso: handle push flag in gro
-34afef738 gerrit:31869/13 gso: do not try gro on small packets
-3020d1f2d gerrit:31321/10 devices: add support for pseudo header checksum
-59cafa1e2 gerrit:29386/9 virtio: DRAFT: multi tx support
-f625693e7 gerrit:32833/1 ipsec: disable linearization
-7482733e0 gerrit:32732/1 crypto: fix sw async crypto with chained buffers
-46d058a9e gerrit:32468/3 buffers: fix buffer linearization
+4e07fde74 Apply patch
+875a75f34 gerrit:33020/2 l3xc: reset dpo on delete
+679b502b9 gerrit:33303/2 memif: fix offset
+ec3b0837e gerrit:32685/4 wireguard: add events for peer
+bc60bad04 gerrit:32009/5 wireguard: add ipv6 support
+5d8d80304 gerrit:32443/7 wireguard: use the same udp-port for multi-tunnel
+422f24d10 gerrit:32413/6 wireguard: move adjacency processing from wireguard_peer to wireguard_interface
+a0c2d57ca gerrit:33495/2 arp: source address selection
+1e5ac5b1d gerrit:33156/3 ip-neighbor: GARP sent to bogus ip address
+ef67ca33e gerrit:33449/9 ip: source address selection
+6ca713044 gerrit:32235/1 dpdk: enable ena interrupt support
+217a7aa86 gerrit:28513/20 capo: Calico Policies plugin
+a31ae4657 gerrit:28083/16 acl: acl-plugin custom policies
+8b848a7bd gerrit:31588/1 cnat: [WIP] no k8s maglev from pods
+8681d0d05 gerrit:31868/1 ip6-nd: silent the source and target checks on given interface
+3d3f95d2a gerrit:32871/1 devices: Add queues params in create_if
+2ef021369 gerrit:32483/1 virtio: Still init unused txq
+452172a67 gerrit:32482/1 virtio: compute cksums in output no offload
+eebf5763a gerrit:32476/3 gso: handle push flag in gro
+be283d6ef gerrit:31869/13 gso: do not try gro on small packets
+2abfe0e6b gerrit:31321/10 devices: add support for pseudo header checksum
+dc0b19799 gerrit:29386/9 virtio: DRAFT: multi tx support
+a650966be gerrit:32833/1 ipsec: disable linearization
+40ddf5249 gerrit:32732/1 crypto: fix sw async crypto with chained buffers
+25ee959ee gerrit:32468/3 buffers: fix buffer linearization
 fc83f8cc6 misc: 21.06 Release Notes
 3001c0344 session: free ctrl event data on connect rpc
 f68dcb720 vcl: Don't use app_socket_api to notify VPP in parent when child exited

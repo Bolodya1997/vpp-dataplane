@@ -63,28 +63,7 @@ function generate_govpp_apis ()
 	  --output-dir=$VPP_GOAPI_DIR \
 	  --import-prefix=$VPP_API_IMPORT_PREFIX \
 	  --no-source-path-info \
-	  --no-version-info \
-	  ikev2 \
-	  gso \
-	  interface \
-	  ip \
-	  ipip \
-	  ipsec \
-	  ip_neighbor \
-	  tapv2 \
-	  nat44_ed \
-	  cnat \
-	  af_packet \
-	  feature \
-	  ip6_nd \
-	  punt \
-	  vxlan \
-	  af_xdp \
-	  vpe \
-	  virtio \
-	  avf \
-	  wireguard \
-      capo
+	  --no-version-info
 }
 
 make_binapi_generator
