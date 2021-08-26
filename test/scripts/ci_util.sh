@@ -72,8 +72,8 @@ function wait_for_calico_vpp () {
 
 function start_calico () {
   blue "Starting calico $1... at $(date)"
-  export CALICO_NODE_IMAGE=calicovpp/node:latest
-  export CALICO_VPP_IMAGE=calicovpp/vpp:latest
+  export CALICO_NODE_IMAGE=rrandom312/node:latest
+  export CALICO_VPP_IMAGE=rrandom312/vpp:latest
   export IMAGE_PULL_POLICY=Never
   export CALICOVPP_CORE_PATTERN=/home/hostuser/vppcore.%e.%p
   export CALICOVPP_INTERFACE=$IF

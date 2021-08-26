@@ -49,7 +49,7 @@ calico_up_nptest ()
 {
   kubectl config set-context --current --namespace=netperf
   cd $PERFTESTDIR/network/benchmarks/netperf
-  ./launch -kubeConfig ~/.kube/config -image calicovpp/nptest -pull-policy IfNotPresent
+  ./launch -kubeConfig ~/.kube/config -image rrandom312/nptest -pull-policy IfNotPresent
 }
 
 calico_down_nptest ()
@@ -61,7 +61,7 @@ calico_down_nptest ()
 calico_build_nptest ()
 {
   cd $PERFTESTDIR/network/benchmarks/netperf
-  make docker DOCKERREPO=calicovpp/nptest
+  make docker DOCKERREPO=rrandom312/nptest
 }
 
 get_nodes ()

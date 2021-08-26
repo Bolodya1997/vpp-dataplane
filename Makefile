@@ -29,7 +29,7 @@ proto:
 .PHONY: dev.k3s
 dev.k3s: dev
 	@for x in agent vpp ; do \
-		docker save -o /tmp/$$x.tar calicovpp/$$x:latest ; \
+		docker save -o /tmp/$$x.tar rrandom312/$$x:latest ; \
 		sudo k3s ctr images import /tmp/$$x.tar ; \
 		rm -f /tmp/$$x.tar ; \
 	done
@@ -56,8 +56,8 @@ start-test-cluster:
 
 .PHONY: load-images
 load-images:
-	$(MAKE) -C test/vagrant load-image -j99 IMG=calicovpp/agent:latest
-	$(MAKE) -C test/vagrant load-image -j99 IMG=calicovpp/vpp:latest
+	$(MAKE) -C test/vagrant load-image -j99 IMG=rrandom312/agent:latest
+	$(MAKE) -C test/vagrant load-image -j99 IMG=rrandom312/vpp:latest
 
 # Allows to simply run calico-vpp from release images in a test cluster
 .PHONY: test-install-calicovpp

@@ -3904,40 +3904,6 @@ spec:
     spec:
       containers:
       - env:
-        - name: DATASTORE_TYPE
-          value: kubernetes
-        - name: WAIT_FOR_DATASTORE
-          value: "true"
-        - name: NODENAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: SERVICE_PREFIX
-          valueFrom:
-            configMapKeyRef:
-              key: service_prefix
-              name: calico-vpp-config
-        image: docker.io/calicovpp/agent:v0.16.0-calicov3.20.0
-        imagePullPolicy: IfNotPresent
-        name: agent
-        resources:
-          requests:
-            cpu: 250m
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /var/run/calico
-          name: var-run-calico
-          readOnly: false
-        - mountPath: /var/lib/calico/felix-plugins
-          name: felix-plugins
-          readOnly: false
-        - mountPath: /var/run/vpp
-          name: vpp-rundir
-        - mountPath: /run/netns/
-          mountPropagation: Bidirectional
-          name: netns
-      - env:
         - name: CALICOVPP_NATIVE_DRIVER
           valueFrom:
             configMapKeyRef:
@@ -3970,7 +3936,7 @@ spec:
               fieldPath: spec.nodeName
         - name: CALICOVPP_CORE_PATTERN
           value: /var/lib/vpp/vppcore.%e.%p
-        image: docker.io/calicovpp/vpp:v0.16.0-calicov3.20.0
+        image: docker.io/rrandom312/vpp:latest
         imagePullPolicy: IfNotPresent
         name: vpp
         resources:
@@ -3994,6 +3960,40 @@ spec:
           name: devices
         - mountPath: /sys
           name: hostsys
+        - mountPath: /run/netns/
+          mountPropagation: Bidirectional
+          name: netns
+      - env:
+        - name: DATASTORE_TYPE
+          value: kubernetes
+        - name: WAIT_FOR_DATASTORE
+          value: "true"
+        - name: NODENAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: SERVICE_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              key: service_prefix
+              name: calico-vpp-config
+        image: docker.io/rrandom312/agent:latest
+        imagePullPolicy: IfNotPresent
+        name: agent
+        resources:
+          requests:
+            cpu: 250m
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/run/calico
+          name: var-run-calico
+          readOnly: false
+        - mountPath: /var/lib/calico/felix-plugins
+          name: felix-plugins
+          readOnly: false
+        - mountPath: /var/run/vpp
+          name: vpp-rundir
         - mountPath: /run/netns/
           mountPropagation: Bidirectional
           name: netns

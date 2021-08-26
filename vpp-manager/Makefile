@@ -18,7 +18,7 @@ build:
 eksimage:
 	docker build --pull \
 		--build-arg http_proxy=${DOCKER_BUILD_PROXY} \
-		-t calicovpp/init-eks:$(TAG) $(INIT_EKS_IMAGE_DIR)
+		-t rrandom312/init-eks:$(TAG) $(INIT_EKS_IMAGE_DIR)
 
 image: build vpp eksimage
 	@cp $(VPPDEV_FILE) $(IMAGE_DIR)
@@ -27,22 +27,22 @@ image: build vpp eksimage
 	@cat $(GENERATE_LOG_FILE)                                           >> $(VERSION_FILE)
 	docker build --pull \
 		--build-arg http_proxy=${DOCKER_BUILD_PROXY} \
-		-t calicovpp/vpp:$(TAG) $(IMAGE_DIR)
+		-t rrandom312/vpp:$(TAG) $(IMAGE_DIR)
 	@if [ "${ALSO_LATEST}" = "y" ]; then \
-		docker tag calicovpp/vpp:$(TAG) calicovpp/vpp:latest; \
+		docker tag rrandom312/vpp:$(TAG) rrandom312/vpp:latest; \
 	fi
 
 push: image
-	docker push calicovpp/vpp:$(TAG)
+	docker push rrandom312/vpp:$(TAG)
 	@if [ "${ALSO_LATEST}" = "y" ]; then \
-		docker push calicovpp/vpp:latest; \
+		docker push rrandom312/vpp:latest; \
 	fi
 
 imageonly: build
 	cp $(VPPDEV_FILE) $(IMAGE_DIR)
 	docker build --pull \
 		--build-arg http_proxy=${DOCKER_BUILD_PROXY} \
-		-t calicovpp/vpp:$(TAG) $(IMAGE_DIR)
+		-t rrandom312/vpp:$(TAG) $(IMAGE_DIR)
 
 clean: clean-vpp
 
@@ -58,7 +58,7 @@ vpp: vpp-build-env
 		-e VPP_MGR_DIR=$(CURDIR) \
 		-v $(CURDIR):$(CURDIR):delegated \
 		--user $$(id -u):$$(id -g) \
-		calicovpp/vpp-build:latest
+		rrandom312/vpp-build:latest
 	for pkg in vpp vpp-plugin-core vpp-plugin-dpdk libvppinfra vpp-dbg ; do \
 		cp vpp_build/build-root/$$pkg_*.deb $(IMAGE_DIR) ; \
 	done
@@ -66,10 +66,10 @@ vpp: vpp-build-env
 vpp-build-env:
 	docker build \
 		--build-arg http_proxy=${DOCKER_BUILD_PROXY} \
-		-t calicovpp/vpp-build:latest images/ubuntu-build
+		-t rrandom312/vpp-build:latest images/ubuntu-build
 
 dev: build
 	cp $(VPPDEV_FILE) $(DEV_IMAGE_DIR)
 	docker build \
 	  --build-arg http_proxy=${DOCKER_BUILD_PROXY} \
-	  -t calicovpp/vpp:$(TAG) $(DEV_IMAGE_DIR)
+	  -t rrandom312/vpp:$(TAG) $(DEV_IMAGE_DIR)
