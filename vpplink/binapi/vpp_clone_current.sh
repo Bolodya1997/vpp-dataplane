@@ -68,3 +68,7 @@ git_cherry_pick refs/changes/85/32685/4 # 32685 wireguard: add events for peer
 git_cherry_pick refs/changes/03/33303/2 # 33303 memif: fix offset
 git_cherry_pick refs/changes/20/33020/2 # 33020 l3xc: reset dpo on delete
 # ------------- NSM patches ------------------
+
+git_cherry_pick refs/changes/77/33177/3 # vppinfra: add abstract socket & netns fns
+git_cherry_pick refs/changes/68/33268/2 # vppinfra: fix sock init netns
+git_cherry_pick refs/changes/71/32271/6 # memif: add support for ns abstract sockets
