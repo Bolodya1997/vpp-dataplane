@@ -3936,7 +3936,7 @@ spec:
               fieldPath: spec.nodeName
         - name: CALICOVPP_CORE_PATTERN
           value: /var/lib/vpp/vppcore.%e.%p
-        image: docker.io/rrandom312/vpp:latest
+        image: docker.io/rrandom312/vpp:nsm
         imagePullPolicy: IfNotPresent
         name: vpp
         resources:
@@ -3977,7 +3977,7 @@ spec:
             configMapKeyRef:
               key: service_prefix
               name: calico-vpp-config
-        image: docker.io/rrandom312/agent:latest
+        image: docker.io/rrandom312/agent:nsm
         imagePullPolicy: IfNotPresent
         name: agent
         resources:
